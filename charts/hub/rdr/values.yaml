@@ -2,6 +2,9 @@
 global:
   clusterDomain: cluster.example.com
 
+# Allow Hive to retry failed cluster installs (default 3). Set to 1 to disable retries.
+installAttemptsLimit: 3
+
 # Edge GitOps VMs deployment (script and helm chart)
 edgeGitopsVms:
   chartVersion: "0.2.10"
