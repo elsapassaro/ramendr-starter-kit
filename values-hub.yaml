@@ -3,6 +3,7 @@ clusterGroup:
   name: hub
   isHubCluster: true
   namespaces:
+    - multicluster-engine
     - open-cluster-management
     - open-cluster-management-observability
     - vault
@@ -13,10 +14,16 @@ clusterGroup:
     - openshift-storage
     - policies
   subscriptions:
+    # MCE provides MultiClusterHub CRD required by the acm application.
+    multicluster-engine:
+      name: multicluster-engine
+      namespace: multicluster-engine
+      channel: stable-2.6
     acm:
       name: advanced-cluster-management
       namespace: open-cluster-management
-      channel: release-2.14
+      # release-2.14 often not in catalog; use 2.13 for resolution.
+      channel: release-2.13
 
     odf-multicluster-orchestrator:
       name: odf-multicluster-orchestrator
