@@ -1,6 +1,10 @@
 ---
 global:
   pattern: ramendr-starter-kit
+  # Avoid null in Application spec (API requires string). Validated Patterns chart uses these.
+  originURL: ""
+  experimentalCapabilities: ""
+  deletePattern: ""
 
   options:
     useCSV: false
