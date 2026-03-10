@@ -1,4 +1,10 @@
 ---
+# Ensure optional Helm params are strings (avoid Application spec validation failure).
+global:
+  originURL: ""
+  experimentalCapabilities: ""
+  deletePattern: ""
+
 clusterGroup:
   name: hub
   isHubCluster: true
@@ -18,12 +24,13 @@ clusterGroup:
     multicluster-engine:
       name: multicluster-engine
       namespace: multicluster-engine
-      channel: stable-2.6
+      # Use a channel that exists in your catalog (check: oc get packagemanifest multicluster-engine -n openshift-marketplace -o jsonpath='{.status.channels[*].name}')
+      channel: stable-2.5
     acm:
       name: advanced-cluster-management
       namespace: open-cluster-management
-      # release-2.14 often not in catalog; use 2.13 for resolution.
-      channel: release-2.13
+      # Use channel that exists in your catalog (oc get packagemanifest advanced-cluster-management -n openshift-marketplace -o jsonpath='{.status.channels[*].name}')
+      channel: release-2.15
 
     odf-multicluster-orchestrator:
       name: odf-multicluster-orchestrator
