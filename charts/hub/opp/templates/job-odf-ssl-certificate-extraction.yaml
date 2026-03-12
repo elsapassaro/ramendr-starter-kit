@@ -8,8 +8,6 @@ metadata:
     app.kubernetes.io/component: certificate-extraction
   annotations:
     argocd.argoproj.io/sync-wave: "5"
-    argocd.argoproj.io/hook: PostSync
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
     argocd.argoproj.io/sync-options: Prune=false
     argocd.argoproj.io/compare-options: IgnoreExtraneous
     argocd.argoproj.io/health-check-ignore: "true"
