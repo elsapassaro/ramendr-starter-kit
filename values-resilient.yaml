@@ -109,7 +109,7 @@ clusterGroup:
       chart: openshift-data-foundations
       chartVersion: 0.2.*
       extraValueFiles:
-        - '$patternref/overrides/values-odf-chart.yaml'
+        - '$patternref/overrides/values-odf-chart-resilient.yaml'
 
     node-health-check-operator:
       name: node-health-check-operator
