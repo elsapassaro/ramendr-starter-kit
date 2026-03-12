@@ -12,6 +12,7 @@ metadata:
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
     argocd.argoproj.io/sync-options: Prune=false
     argocd.argoproj.io/compare-options: IgnoreExtraneous
+    argocd.argoproj.io/health-check-ignore: "true"
 spec:
   template:
     spec:
