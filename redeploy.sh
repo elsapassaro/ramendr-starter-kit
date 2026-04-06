@@ -172,16 +172,6 @@ deploy_pattern() {
 
     log "Running pattern install (this takes ~20 minutes for operators, then ~50 minutes for managed clusters)..."
     VALUES_SECRET="$VALUES_SECRET" ./pattern.sh make install 2>&1 || warn "Pattern install exited with warnings (expected during first sync)"
-
-    log "Fixing Vault privatekey secret..."
-    local privkey pubkey
-    privkey=$(oc exec -n vault vault-0 -- vault kv get -field=ssh-privatekey secret/hub/aws 2>/dev/null) || true
-    pubkey=$(oc exec -n vault vault-0 -- vault kv get -field=ssh-publickey secret/hub/aws 2>/dev/null) || true
-    if [[ -n "$privkey" ]]; then
-        oc exec -n vault vault-0 -- vault kv put secret/hub/privatekey \
-            ssh-privatekey="$privkey" ssh-publickey="$pubkey" 2>/dev/null
-        log "  Vault secret/hub/privatekey created."
-    fi
 }
 
 wait_for_convergence() {

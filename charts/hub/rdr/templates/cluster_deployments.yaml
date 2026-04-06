@@ -24,13 +24,20 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "0"
 spec:
-  dataFrom:
-    - extract:
+  data:
+    - secretKey: ssh-privatekey
+      remoteRef:
         conversionStrategy: Default
         decodingStrategy: None
-        key: secret/hub/privatekey
-        metadataPolicy: None
-  refreshInterval: 24h0m0s
+        key: secret/hub/aws
+        property: ssh-privatekey
+    - secretKey: ssh-publickey
+      remoteRef:
+        conversionStrategy: Default
+        decodingStrategy: None
+        key: secret/hub/aws
+        property: ssh-publickey
+  refreshInterval: 1h0m0s
   secretStoreRef:
     kind: ClusterSecretStore
     name: vault-backend
@@ -128,7 +135,7 @@ metadata:
 spec:
   baseDomain: {{ $baseDomain }}
   clusterName: {{ $cluster.name }}
-  installAttemptsLimit: 1
+  installAttemptsLimit: 3
   platform:
 {{- if $cluster.install_config.platform.aws }}
     aws:

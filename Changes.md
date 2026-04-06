@@ -25,3 +25,7 @@ v1.1 - March 2026
   - Add a ManifestWork-based CatalogSource (redhat-operator-index:v4.20) on managed clusters
     to provide the submariner package, which is absent from redhat-operator-index:v4.21.
   - Configure SubmarinerConfig.subscriptionConfig to use this custom catalog source.
+* Fix cluster private key ExternalSecret to read ssh-privatekey/ssh-publickey directly from
+  secret/hub/aws (already populated by values-secret.yaml) instead of the separate
+  secret/hub/privatekey path that was never seeded by the pattern — removing an entire class
+  of SecretSyncedError failures on fresh deployments.
