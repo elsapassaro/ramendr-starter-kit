@@ -7,6 +7,10 @@
 # This ManifestWork deploys a custom CatalogSource backed by the v4.20 index to the
 # managed cluster so that OLM can resolve the submariner subscription.
 # See SubmarinerConfig.spec.subscriptionConfig in submariner_addon_install.yaml.
+#
+# The ClusterRole/ClusterRoleBinding below grant klusterlet-work-sa the permission
+# to manage CatalogSource resources, which is not included in the default klusterlet
+# RBAC. Without these, the ManifestWork will fail with a forbidden error.
 apiVersion: work.open-cluster-management.io/v1
 kind: ManifestWork
 metadata:
@@ -17,6 +21,26 @@ metadata:
 spec:
   workload:
     manifests:
+      - apiVersion: rbac.authorization.k8s.io/v1
+        kind: ClusterRole
+        metadata:
+          name: klusterlet-work-catalogsource-admin
+        rules:
+          - apiGroups: ["operators.coreos.com"]
+            resources: ["catalogsources"]
+            verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+      - apiVersion: rbac.authorization.k8s.io/v1
+        kind: ClusterRoleBinding
+        metadata:
+          name: klusterlet-work-catalogsource-admin
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: ClusterRole
+          name: klusterlet-work-catalogsource-admin
+        subjects:
+          - kind: ServiceAccount
+            name: klusterlet-work-sa
+            namespace: open-cluster-management-agent
       - apiVersion: operators.coreos.com/v1alpha1
         kind: CatalogSource
         metadata:
