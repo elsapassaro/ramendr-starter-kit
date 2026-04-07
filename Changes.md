@@ -29,3 +29,17 @@ v1.1 - March 2026
   secret/hub/aws (already populated by values-secret.yaml) instead of the separate
   secret/hub/privatekey path that was never seeded by the pattern — removing an entire class
   of SecretSyncedError failures on fresh deployments.
+* Fix KubeVirt VM scheduling on ocp-primary and ocp-secondary:
+  - Change worker instance type from m5.4xlarge to m5.metal in overrides/values-cluster-names.yaml.
+    m5.4xlarge nodes in eu-north-1 and eu-west-1 do not expose the vmx CPU flag, so /dev/kvm
+    is absent and devices.kubevirt.io/kvm is never advertised — VMs land in ErrorUnschedulable.
+    m5.metal provides direct hardware access and /dev/kvm works out of the box on all workers.
+  - Add rootVolume (300 GB gp3) to the worker compute spec. Without an explicit rootVolume,
+    Hive provisions workers with the default RHCOS image disk (~16 GB), which causes
+    ephemeral-storage DiskPressure as container images fill the filesystem.
+  - Fix opp-policy argocd-health-monitor Job sync-wave from 0 to 20, eliminating the
+    chicken-and-egg deadlock where wave-0 needed ArgoCD on managed clusters before the
+    PlacementRules (wave 2) that deploy ArgoCD were applied.
+  - Fix submariner-catalog ManifestWork to include ClusterRole/ClusterRoleBinding granting
+    klusterlet-work-sa permission to manage CatalogSource resources, which is required for the
+    ManifestWork to apply the custom CatalogSource in openshift-marketplace.

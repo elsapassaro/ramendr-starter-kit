@@ -16,7 +16,16 @@ clusterOverrides:
           replicas: 3
           platform:
             aws:
-              type: m5.4xlarge
+              # m5.metal: bare-metal instances expose /dev/kvm directly, required
+              # for KubeVirt VMs. m5.4xlarge in eu-north-1 does not expose the
+              # vmx CPU flag so devices.kubevirt.io/kvm is never advertised.
+              # rootVolume: 300 GB gp3 avoids ephemeral-storage DiskPressure
+              # (default RHCOS image disk is ~16 GB without an explicit override).
+              type: m5.metal
+              rootVolume:
+                iops: 4000
+                size: 300
+                type: gp3
       platform:
         aws:
           region: eu-north-1
@@ -31,7 +40,12 @@ clusterOverrides:
           replicas: 3
           platform:
             aws:
-              type: m5.4xlarge
+              # Same as primary: m5.metal for KVM support on eu-west-1 workers.
+              type: m5.metal
+              rootVolume:
+                iops: 4000
+                size: 300
+                type: gp3
       platform:
         aws:
           region: eu-west-1
