@@ -174,6 +174,62 @@ deploy_pattern() {
     VALUES_SECRET="$VALUES_SECRET" ./pattern.sh make install 2>&1 || warn "Pattern install exited with warnings (expected during first sync)"
 }
 
+fix_submariner_vxlan_sg() {
+    # The Submariner prerequisites job only opens the IPsec ports (UDP 500/4500/4900/ESP/AH).
+    # When using the VXLAN cable driver, two additional ports must be opened on each
+    # cluster's gateway security group:
+    #   UDP 4800  — VXLAN tunnel data
+    #   UDP 4490  — Submariner NAT-discovery (used by the VXLAN driver)
+    log "Adding VXLAN ports (UDP 4490, 4800) to Submariner gateway security groups..."
+    export KUBECONFIG="$HUB_INSTALL_DIR/auth/kubeconfig"
+
+    for CLUSTER_NAME in ocp-primary ocp-secondary; do
+        local CLUSTER_NS="$CLUSTER_NAME"
+        local region
+        if [[ "$CLUSTER_NAME" == "ocp-primary" ]]; then
+            region="$HUB_REGION"
+        else
+            region="$SECONDARY_REGION"
+        fi
+
+        # The gateway SG is tagged with the cluster infra ID
+        local infra_id
+        infra_id=$(oc get clusterdeployment "$CLUSTER_NAME" -n "$CLUSTER_NS" \
+            -o jsonpath='{.spec.clusterMetadata.infraID}' 2>/dev/null || true)
+        [[ -z "$infra_id" ]] && { warn "Cannot get infraID for $CLUSTER_NAME, skipping SG fix"; continue; }
+
+        local sg_id
+        sg_id=$(aws ec2 describe-security-groups \
+            --region "$region" \
+            --filters "Name=tag:Name,Values=${infra_id}-submariner-gw-sg" \
+            --query 'SecurityGroups[0].GroupId' \
+            --output text 2>/dev/null || true)
+        [[ -z "$sg_id" || "$sg_id" == "None" ]] && { warn "No submariner-gw-sg found for $CLUSTER_NAME, skipping"; continue; }
+
+        for PORT in 4490 4800; do
+            # Only add if not already present
+            local existing
+            existing=$(aws ec2 describe-security-groups \
+                --region "$region" \
+                --group-ids "$sg_id" \
+                --query "SecurityGroups[0].IpPermissions[?FromPort==\`$PORT\`].FromPort" \
+                --output text 2>/dev/null || true)
+            if [[ -z "$existing" ]]; then
+                aws ec2 authorize-security-group-ingress \
+                    --region "$region" \
+                    --group-id "$sg_id" \
+                    --protocol udp \
+                    --port "$PORT" \
+                    --cidr 0.0.0.0/0 2>/dev/null \
+                && log "  Opened UDP $PORT on $CLUSTER_NAME ($sg_id)" \
+                || warn "  Failed to open UDP $PORT on $CLUSTER_NAME (may already exist)"
+            else
+                log "  UDP $PORT already open on $CLUSTER_NAME"
+            fi
+        done
+    done
+}
+
 wait_for_convergence() {
     log "Waiting for full environment convergence..."
     export KUBECONFIG="$HUB_INSTALL_DIR/auth/kubeconfig"
@@ -252,6 +308,7 @@ full_redeploy() {
     scale_hub_workers
     deploy_pattern
     wait_for_convergence
+    fix_submariner_vxlan_sg
     show_status
     log "Full redeploy complete!"
 }
@@ -269,6 +326,7 @@ case "${1:-}" in
         scale_hub_workers
         deploy_pattern
         wait_for_convergence
+        fix_submariner_vxlan_sg
         show_status
         ;;
     --status)

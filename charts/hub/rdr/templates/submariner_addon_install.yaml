@@ -52,9 +52,17 @@ spec:
       # c5d/r5d/m5d instance types (NVMe local SSD) fail to bootstrap on OCP 4.21
       # due to rpm-ostreed crash loops. Use non-NVMe instance types instead.
       instanceType: m5.large
+  # Use VXLAN instead of libreswan (IPsec). The Submariner operator from the v4.20
+  # catalog passes --encapsulation=yes to libreswan on OCP 4.21 RHCOS nodes, which
+  # runs pluto 4.15 — an unrecognized flag that prevents the IPsec tunnel from
+  # forming. VXLAN avoids libreswan entirely and establishes the tunnel reliably.
+  # Note: UDP 4490 (NAT discovery) and UDP 4800 (VXLAN data) must be open in the
+  # gateway security groups; the Submariner prerequisites job only opens the IPsec
+  # ports (UDP 500/4500/4900). Add these rules manually after the first deployment
+  # or automate them via the redeploy.sh script.
   IPSecNATTPort: 4500
-  NATTEnable: true
-  cableDriver: libreswan
+  NATTEnable: false
+  cableDriver: vxlan
   credentialsSecret:
     name: {{ $cluster.name }}-cluster-aws-creds
   subscriptionConfig:

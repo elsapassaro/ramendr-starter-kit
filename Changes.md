@@ -43,3 +43,16 @@ v1.1 - March 2026
   - Fix submariner-catalog ManifestWork to include ClusterRole/ClusterRoleBinding granting
     klusterlet-work-sa permission to manage CatalogSource resources, which is required for the
     ManifestWork to apply the custom CatalogSource in openshift-marketplace.
+* Fix Submariner cross-cluster tunnel with VXLAN cable driver:
+  - The Submariner operator (from the v4.20 catalog) passes --encapsulation=yes to libreswan when
+    establishing the IPsec tunnel. OCP 4.21 RHCOS nodes ship with libreswan (pluto) 4.15, which
+    does not recognise that flag — exit status 33 — so the IPsec tunnel never forms and VolSync
+    rsync-tls source pods cannot resolve destination clusterset.local hostnames.
+  - Switched SubmarinerConfig.spec.cableDriver from libreswan to vxlan and set NATTEnable: false.
+    VXLAN bypasses libreswan/IKE entirely and builds the tunnel over UDP 4800, working reliably on
+    OCP 4.21 RHCOS with the v4.20-catalog Submariner operator.
+  - Added UDP 4490 (VXLAN NAT-discovery) and UDP 4800 (VXLAN tunnel data) to both clusters'
+    Submariner gateway security groups. The Submariner prerequisites job only opens IPsec ports
+    (ESP, AH, UDP 4500/4900) — the VXLAN ports must be added separately.
+  - Added fix_submariner_vxlan_sg() function to redeploy.sh to automate adding these ports after
+    future deployments.
