@@ -12,3 +12,5 @@ super-linter.log
 .ansible
 /ocp-primary.yaml
 /ocp-secondary.yaml
+redeploy*.log
+redeploy*.pid
