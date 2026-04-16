@@ -2,6 +2,19 @@
 
 Helm chart for Regional DR configuration (cluster pair, install_config, DRPC, etc.).
 
+## Cost management defaults
+
+The chart now supports managed-cluster AWS cost attribution tags via `costManagement` values:
+
+```yaml
+costManagement:
+  ownerTag: your-user-or-team
+  launchedByTag: automation-user
+  environmentTag: dev
+```
+
+These values are injected into `install_config.platform.aws.userTags` for both primary and secondary managed clusters.
+
 ## Updating the default install_config JSON files
 
 When `values.yaml` is changed (e.g. machine types, networking CIDRs, platform settings) under `regionalDR[0].clusters.primary.install_config` or `secondary.install_config`, the chart’s fallback files must be kept in sync so minimal `regionalDR` values still produce a full install_config.

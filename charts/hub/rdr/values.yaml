@@ -2,6 +2,13 @@
 global:
   clusterDomain: cluster.example.com
 
+# Cost attribution tags applied to managed cluster AWS resources.
+# Override these values in your own values file to track spend per team/user.
+costManagement:
+  ownerTag: unknown
+  launchedByTag: automation-user
+  environmentTag: dev
+
 # Edge GitOps VMs deployment (script and helm chart)
 edgeGitopsVms:
   chartVersion: "0.2.10"
@@ -11,7 +18,7 @@ edgeGitopsVms:
 # clusterOverrides:
 #   primary:
 #     name: ocp-primary
-#     version: 4.21.1
+#     version: 4.21.6
 #     install_config:
 #       metadata:
 #         name: ocp-primary
@@ -56,7 +63,7 @@ regionalDR:
       primary:
         name: ocp-primary
         clusterGroup: resilient
-        version: 4.21.1
+        version: 4.21.6
         install_config:
           apiVersion: v1
           baseDomain: "{{ join \".\" (slice (splitList \".\" $.Values.global.clusterDomain) 1) }}"
@@ -73,7 +80,7 @@ regionalDR:
               replicas: 3
               platform:
                 aws:
-                  type: m5.metal
+                  type: m8i.4xlarge
           networking:
             clusterNetwork:
               - cidr: 10.132.0.0/14
@@ -88,13 +95,16 @@ regionalDR:
               region: eu-north-1
               userTags:
                 project: ValidatedPatterns
+                owner: "{{ $.Values.costManagement.ownerTag }}"
+                launchedBy: "{{ $.Values.costManagement.launchedByTag }}"
+                environment: "{{ $.Values.costManagement.environmentTag }}"
           publish: External
           sshKey: ""
           pullSecret: ""
       secondary:
         name: ocp-secondary
         clusterGroup: resilient
-        version: 4.21.1
+        version: 4.21.6
         install_config:
           apiVersion: v1
           baseDomain: "{{ join \".\" (slice (splitList \".\" $.Values.global.clusterDomain) 1) }}"
@@ -111,7 +121,7 @@ regionalDR:
               replicas: 3
               platform:
                 aws:
-                  type: m5.metal
+                  type: m8i.4xlarge
           networking:
             clusterNetwork:
               - cidr: 10.136.0.0/14
@@ -126,6 +136,9 @@ regionalDR:
               region: eu-west-1
               userTags:
                 project: ValidatedPatterns
+                owner: "{{ $.Values.costManagement.ownerTag }}"
+                launchedBy: "{{ $.Values.costManagement.launchedByTag }}"
+                environment: "{{ $.Values.costManagement.environmentTag }}"
           publish: External
           sshKey: ""
           pullSecret: ""

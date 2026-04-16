@@ -4,10 +4,15 @@
 # (clusterOverrides, drpc) so chart regionalDR defaults are preserved.
 # Also works if merged first: -f overrides/values-cluster-names.yaml -f charts/hub/rdr/values.yaml
 
+costManagement:
+  ownerTag: your-user-or-team
+  launchedByTag: automation-user
+  environmentTag: dev
+
 clusterOverrides:
   primary:
     name: ocp-primary
-    version: 4.21.1
+    version: 4.21.6
     install_config:
       metadata:
         name: ocp-primary
@@ -16,22 +21,13 @@ clusterOverrides:
           replicas: 3
           platform:
             aws:
-              # m5.metal: bare-metal instances expose /dev/kvm directly, required
-              # for KubeVirt VMs. m5.4xlarge in eu-north-1 does not expose the
-              # vmx CPU flag so devices.kubevirt.io/kvm is never advertised.
-              # rootVolume: 300 GB gp3 avoids ephemeral-storage DiskPressure
-              # (default RHCOS image disk is ~16 GB without an explicit override).
-              type: m5.metal
-              rootVolume:
-                iops: 4000
-                size: 300
-                type: gp3
+              type: m8i.4xlarge
       platform:
         aws:
-          region: eu-north-1
+          region: eu-central-1
   secondary:
     name: ocp-secondary
-    version: 4.21.1
+    version: 4.21.6
     install_config:
       metadata:
         name: ocp-secondary
@@ -40,12 +36,7 @@ clusterOverrides:
           replicas: 3
           platform:
             aws:
-              # Same as primary: m5.metal for KVM support on eu-west-1 workers.
-              type: m5.metal
-              rootVolume:
-                iops: 4000
-                size: 300
-                type: gp3
+              type: m8i.4xlarge
       platform:
         aws:
           region: eu-west-1
