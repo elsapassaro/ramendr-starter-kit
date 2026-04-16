@@ -4,6 +4,11 @@
 # (clusterOverrides, drpc) so chart regionalDR defaults are preserved.
 # Also works if merged first: -f overrides/values-cluster-names.yaml -f charts/hub/rdr/values.yaml
 
+costManagement:
+  ownerTag: your-user-or-team
+  launchedByTag: automation-user
+  environmentTag: dev
+
 clusterOverrides:
   primary:
     name: ocp-primary

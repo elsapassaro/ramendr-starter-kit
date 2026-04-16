@@ -19,7 +19,7 @@
       "replicas": 3,
       "platform": {
         "aws": {
-          "type": "m5.metal"
+            "type": "m8i.4xlarge"
         }
       }
     }
@@ -45,7 +45,10 @@
     "aws": {
       "region": "us-east-1",
       "userTags": {
-        "project": "ValidatedPatterns"
+        "project": "ValidatedPatterns",
+        "owner": "{{ $.Values.costManagement.ownerTag }}",
+        "launchedBy": "{{ $.Values.costManagement.launchedByTag }}",
+        "environment": "{{ $.Values.costManagement.environmentTag }}"
       }
     }
   },

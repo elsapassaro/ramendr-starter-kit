@@ -66,8 +66,8 @@ validate_install_config() {
     echo "  FAIL $label: missing controlPlane"
     err=1
   fi
-  if ! echo "$yaml" | grep -q "type: m5"; then
-    echo "  FAIL $label: missing machine type (m5.4xlarge or m5.metal)"
+  if ! echo "$yaml" | grep -q "type:"; then
+    echo "  FAIL $label: missing machine type in controlPlane/compute"
     err=1
   fi
   if ! echo "$yaml" | grep -q "metadata:"; then
@@ -94,7 +94,7 @@ is_install_config_broken() {
   if echo "$yaml" | grep -q "compute: \[\]"; then return 0; fi
   if echo "$yaml" | grep -q "networking: null"; then return 0; fi
   if ! echo "$yaml" | grep -q "controlPlane:"; then return 0; fi
-  if ! echo "$yaml" | grep -q "type: m5"; then return 0; fi
+  if ! echo "$yaml" | grep -q "type:"; then return 0; fi
   return 1
 }
 

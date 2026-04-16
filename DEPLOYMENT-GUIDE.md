@@ -80,7 +80,7 @@ The solution is to provision at least **one bare-metal EC2 instance** (e.g. `c5.
 
 **Both clusters need a metal node:** VMs initially run on the primary cluster, but during a DR failover they must start on the secondary cluster. Without a metal node there, failover will fail with the same `ErrorUnschedulable` error.
 
-> **Cost note:** `c5.metal` instances are significantly more expensive than standard types (~$4.08/hr in eu-west-1). Consider stopping the metal MachineSet replicas to 0 when the environment is idle and scaling back to 1 before testing.
+> **Cost note:** `c5.metal`/`c5n.metal` instances are significantly more expensive than standard workers. Keep metal replicas at 0 when the environment is idle and scale to 1 only when testing KubeVirt VMs or DR failover.
 
 ---
 
@@ -262,6 +262,19 @@ platform:
 ```
 
 > **Important:** The two managed clusters MUST be in different AWS regions for regional DR to work.
+
+### Step 3b: Add Cost Attribution Tags (Recommended)
+
+Edit your override values and set the owner/environment tags so every launched AWS resource is attributable:
+
+```yaml
+costManagement:
+  ownerTag: your-user-or-team
+  launchedByTag: automation-user
+  environmentTag: dev
+```
+
+These values are injected into managed cluster `install-config` as AWS `userTags`.
 
 ### Step 4: Create the Secrets File
 
@@ -513,6 +526,54 @@ Repeat the entire process for `ocp-secondary` before testing DR failover.
 4. **DR protection active** — check via Hub Console:
    `All Clusters → Data Services → Disaster Recovery → Protected Applications`
    Both "Kubernetes objects" and "Application volumes" should show Healthy.
+
+---
+
+## Cost Investigation and Optimization
+
+### Investigate untagged usage and owner attribution
+
+Use the audit script:
+
+```bash
+./scripts/audit-aws-cost-and-tags.sh
+```
+
+Useful environment variables:
+
+```bash
+# Optional filters
+OWNER_TAG_KEY=owner \
+LAUNCHED_BY_TAG_KEY=launchedBy \
+LAUNCHED_BY_FILTER=automation-user \
+START_DATE=2026-03-01 \
+END_DATE=2026-04-01 \
+./scripts/audit-aws-cost-and-tags.sh
+```
+
+What this reports:
+- EC2 compute cost grouped by owner tag (Cost Explorer)
+- EC2 compute cost where owner tag is absent
+- Instances missing owner tag, across all AWS regions
+
+### Optional: Use a cost-optimized dev/test profile
+
+For disposable environments, the repo enables an aggressive profile with spot bare-metal workers by merging `overrides/values-aws-cost-optimized.yaml` into the `regional-dr` ArgoCD application via `values-hub.yaml` (`extraValueFiles`).
+
+To **disable** that profile (for example for a stable non-spot deployment), remove this line from `values-hub.yaml` under the `rdr` application and push:
+
+- `'/overrides/values-aws-cost-optimized.yaml'`
+
+If your tooling supports it, you can pass extra Helm options through the utility container:
+
+```bash
+EXTRA_HELM_OPTS="..." VALUES_SECRET=~/values-secret.yaml ./pattern.sh make install
+```
+
+The override file `overrides/values-aws-cost-optimized.yaml` sets:
+- `c5n.metal` workers with `spotMarketOptions`
+- cheaper region defaults for primary/secondary
+- explicit owner/launcher/environment tags
 
 ---
 
