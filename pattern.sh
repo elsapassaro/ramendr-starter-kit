@@ -82,7 +82,13 @@ fi
 # $HOME is mounted as itself for any files that are referenced with absolute paths
 # $HOME is mounted to /root because the UID in the container is 0 and that's where SSH looks for credentials
 
-podman run -it --rm --pull=newer \
+# Podman requires a TTY for `-t`; CI and some automation shells have no TTY. Use `-i` only then.
+PODMAN_STDIO_ARGS=(-it)
+if [[ ! -t 0 ]] || [[ ! -t 1 ]]; then
+	PODMAN_STDIO_ARGS=(-i)
+fi
+
+podman run "${PODMAN_STDIO_ARGS[@]}" --rm --pull=newer \
     --security-opt label=disable \
     -e ANSIBLE_STDOUT_CALLBACK \
     -e DISABLE_VALIDATE_ORIGIN \

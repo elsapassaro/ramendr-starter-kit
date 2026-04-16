@@ -129,6 +129,7 @@ clusterGroup:
       extraValueFiles:
         - '/overrides/values-cluster-names.yaml'
         - '/overrides/values-egv-dr.yaml'
+        - '/overrides/values-aws-cost-optimized.yaml'
       ignoreDifferences:
         # Prevent ArgoCD from pruning dynamically created OCM resources
         # These resources are created by OCM operators and should never be pruned
