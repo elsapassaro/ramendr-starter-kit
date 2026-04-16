@@ -7,17 +7,9 @@
 # - Bare-metal is still required for KubeVirt VM scheduling (/dev/kvm support).
 # - Keep this profile for non-production testing unless your SLOs accept spot behavior.
 
-costManagement:
-  ownerTag: your-user-or-team
-  launchedByTag: automation-user
-  environmentTag: dev
-
 clusterOverrides:
   primary:
     install_config:
-      platform:
-        aws:
-          region: eu-north-1
       compute:
         - name: worker
           replicas: 3
@@ -25,11 +17,14 @@ clusterOverrides:
             aws:
               type: c5n.metal
               spotMarketOptions: {}
+      platform:
+        aws:
+          userTags:
+            owner: your-user-or-team
+            launchedBy: automation-user
+            environment: dev
   secondary:
     install_config:
-      platform:
-        aws:
-          region: eu-west-1
       compute:
         - name: worker
           replicas: 3
@@ -37,3 +32,9 @@ clusterOverrides:
             aws:
               type: c5n.metal
               spotMarketOptions: {}
+      platform:
+        aws:
+          userTags:
+            owner: your-user-or-team
+            launchedBy: automation-user
+            environment: dev

@@ -4,11 +4,6 @@
 # (clusterOverrides, drpc) so chart regionalDR defaults are preserved.
 # Also works if merged first: -f overrides/values-cluster-names.yaml -f charts/hub/rdr/values.yaml
 
-costManagement:
-  ownerTag: your-user-or-team
-  launchedByTag: automation-user
-  environmentTag: dev
-
 clusterOverrides:
   primary:
     name: ocp-primary
@@ -16,18 +11,38 @@ clusterOverrides:
     install_config:
       metadata:
         name: ocp-primary
+      compute:
+        - name: worker
+          replicas: 3
+          platform:
+            aws:
+              type: m8i.4xlarge
       platform:
         aws:
           region: us-west-1
+          userTags:
+            owner: your-user-or-team
+            launchedBy: automation-user
+            environment: dev
   secondary:
     name: ocp-secondary
     version: 4.20.6
     install_config:
       metadata:
         name: ocp-secondary
+      compute:
+        - name: worker
+          replicas: 3
+          platform:
+            aws:
+              type: m8i.4xlarge
       platform:
         aws:
           region: us-east-1
+          userTags:
+            owner: your-user-or-team
+            launchedBy: automation-user
+            environment: dev
 
 # DRPC overrides (preferredCluster defaults to primary if unset)
 drpc:
