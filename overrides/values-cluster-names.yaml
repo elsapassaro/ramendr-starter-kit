@@ -1,48 +1,20 @@
 ---
-# Minimal override for DR cluster names, versions, and regions.
-# This file is applied after chart defaults (override merged last). It only contains overlay keys
-# (clusterOverrides, drpc) so chart regionalDR defaults are preserved.
-# Also works if merged first: -f overrides/values-cluster-names.yaml -f charts/hub/rdr/values.yaml
+# Override for DR cluster names and versions.
+# Set byoc: true to use pre-provisioned clusters (Bring Your Own Cluster).
+# In BYOC mode, the hub will not provision spokes via Hive — instead it imports
+# them using the kubeconfigs provided in values-secret.yaml (ocp-primary-kubeconfig
+# and ocp-secondary-kubeconfig). All install_config AWS details are handled
+# externally by openshift-install.
 
 clusterOverrides:
   primary:
     name: ocp-primary
     version: 4.20.6
-    install_config:
-      metadata:
-        name: ocp-primary
-      compute:
-        - name: worker
-          replicas: 3
-          platform:
-            aws:
-              type: m8i.4xlarge
-      platform:
-        aws:
-          region: us-west-1
-          userTags:
-            owner: your-user-or-team
-            launchedBy: automation-user
-            environment: dev
+    byoc: true
   secondary:
     name: ocp-secondary
     version: 4.20.6
-    install_config:
-      metadata:
-        name: ocp-secondary
-      compute:
-        - name: worker
-          replicas: 3
-          platform:
-            aws:
-              type: m8i.4xlarge
-      platform:
-        aws:
-          region: us-east-1
-          userTags:
-            owner: your-user-or-team
-            launchedBy: automation-user
-            environment: dev
+    byoc: true
 
 # DRPC overrides (preferredCluster defaults to primary if unset)
 drpc:

@@ -5,20 +5,33 @@ set -euo pipefail
 # RamenDR Starter Kit — Full Environment Redeploy Script
 #
 # Usage:
-#   ./redeploy.sh                    # Full redeploy (hub + pattern)
+#   ./redeploy.sh                    # Full redeploy: all clusters in parallel + pattern
 #   ./redeploy.sh --destroy-only     # Destroy everything without redeploying
-#   ./redeploy.sh --pattern-only     # Skip hub install, deploy pattern on existing hub
+#   ./redeploy.sh --pattern-only     # Skip cluster installs, deploy pattern on existing hub
 #   ./redeploy.sh --status           # Check current environment status
+#
+# All three clusters (hub + ocp-primary + ocp-secondary) are provisioned in
+# parallel using openshift-install. The pattern runs in BYOC mode — spoke
+# kubeconfigs are provided as secrets and the hub imports the clusters directly
+# without going through Hive.
+#
+# Each cluster needs its own install directory containing install-config.yaml.bak:
+#   HUB_INSTALL_DIR      (default: ~/git/hub-cluster-install)
+#   PRIMARY_INSTALL_DIR  (default: ~/git/ocp-primary-install)
+#   SECONDARY_INSTALL_DIR(default: ~/git/ocp-secondary-install)
 #
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HUB_INSTALL_DIR="${HUB_INSTALL_DIR:-$HOME/git/hub-cluster-install}"
+PRIMARY_INSTALL_DIR="${PRIMARY_INSTALL_DIR:-$HOME/git/ocp-primary-install}"
+SECONDARY_INSTALL_DIR="${SECONDARY_INSTALL_DIR:-$HOME/git/ocp-secondary-install}"
 VALUES_SECRET="${VALUES_SECRET:-$HOME/values-secret.yaml}"
 HOSTED_ZONE_ID="${HOSTED_ZONE_ID:-Z01653801KMZNKX9NGW6G}"
 BASE_DOMAIN="ecoengverticals-qe.devcluster.openshift.com"
 HUB_REGION="eu-central-1"
 SECONDARY_REGION="eu-west-1"
-# Target OCP version for the hub — must match the spoke versions in overrides/values-cluster-names.yaml
+# Target OCP version for all clusters — hub + spokes should use the same minor version
+# to avoid ODF Multicluster Orchestrator incompatibilities.
 HUB_OCP_VERSION="${HUB_OCP_VERSION:-4.20.6}"
 
 RED='\033[0;31m'
@@ -48,10 +61,13 @@ check_prerequisites() {
         err "Missing secrets file: $VALUES_SECRET"
         missing=1
     fi
-    if [[ ! -f "$HUB_INSTALL_DIR/install-config.yaml.bak" ]]; then
-        err "Missing hub install-config backup: $HUB_INSTALL_DIR/install-config.yaml.bak"
-        missing=1
-    fi
+    for dir_var in HUB_INSTALL_DIR PRIMARY_INSTALL_DIR SECONDARY_INSTALL_DIR; do
+        local dir="${!dir_var}"
+        if [[ ! -f "$dir/install-config.yaml.bak" ]]; then
+            err "Missing install-config backup: $dir/install-config.yaml.bak"
+            missing=1
+        fi
+    done
     if ! podman machine info &>/dev/null; then
         warn "Podman machine not running. Starting..."
         podman machine start 2>/dev/null || true
@@ -113,14 +129,28 @@ release_orphaned_eips() {
     done
 }
 
-destroy_hub() {
-    log "Destroying hub cluster..."
-    if [[ -f "$HUB_INSTALL_DIR/metadata.json" ]]; then
-        cd "$HUB_INSTALL_DIR"
-        openshift-install destroy cluster --dir . --log-level=info 2>&1 || warn "Hub destroy had errors (may already be destroyed)"
+destroy_cluster() {
+    local name="$1"
+    local dir="$2"
+    if [[ -f "$dir/metadata.json" ]]; then
+        log "Destroying $name cluster..."
+        openshift-install destroy cluster --dir "$dir" --log-level=info 2>&1 \
+            || warn "$name destroy had errors (may already be destroyed)"
     else
-        warn "No hub metadata found — cluster may already be destroyed."
+        warn "No metadata found for $name — skipping (may already be destroyed)."
     fi
+}
+
+destroy_managed_clusters() {
+    log "Destroying spoke clusters in parallel..."
+    destroy_cluster "ocp-primary" "$PRIMARY_INSTALL_DIR" &
+    destroy_cluster "ocp-secondary" "$SECONDARY_INSTALL_DIR" &
+    wait
+    log "Spoke clusters destroyed."
+}
+
+destroy_hub() {
+    destroy_cluster "hub" "$HUB_INSTALL_DIR"
 }
 
 ensure_openshift_install_version() {
@@ -138,7 +168,6 @@ ensure_openshift_install_version() {
     curl -fsSL "$url" -o "$tmp/openshift-install.tar.gz"
     tar -xzf "$tmp/openshift-install.tar.gz" -C "$tmp" openshift-install
     chmod +x "$tmp/openshift-install"
-    # Install into the same directory as the current binary, or ~/bin if writable
     local install_dir
     install_dir=$(dirname "$(command -v openshift-install 2>/dev/null || echo "$HOME/bin/openshift-install")")
     mv "$tmp/openshift-install" "$install_dir/openshift-install"
@@ -146,17 +175,22 @@ ensure_openshift_install_version() {
     log "openshift-install $want installed to $install_dir."
 }
 
-install_hub() {
-    ensure_openshift_install_version
-    log "Preparing hub cluster install directory..."
-    cd "$HUB_INSTALL_DIR"
+install_one_cluster() {
+    local name="$1"
+    local dir="$2"
+    log "Installing $name cluster..."
+    cd "$dir"
     setopt +o nomatch 2>/dev/null || true
     rm -rf .clusterapi_output .openshift_install.log .openshift_install_state.json \
            auth metadata.json terraform* 2>/dev/null || true
     cp install-config.yaml.bak install-config.yaml
-
-    log "Installing hub cluster (this takes ~45 minutes)..."
     openshift-install create cluster --dir . --log-level=info 2>&1
+    log "$name cluster installed."
+}
+
+install_hub() {
+    ensure_openshift_install_version
+    install_one_cluster "hub" "$HUB_INSTALL_DIR"
 
     log "Hub cluster installed. Setting up kubeconfig..."
     mkdir -p "$HOME/.kube"
@@ -165,6 +199,14 @@ install_hub() {
 
     log "Hub console: https://console-openshift-console.apps.hub.${BASE_DOMAIN}"
     grep -o 'password: "[^"]*"' "$HUB_INSTALL_DIR/.openshift_install.log" | tail -1 || true
+}
+
+install_spokes() {
+    log "Installing ocp-primary and ocp-secondary in parallel..."
+    install_one_cluster "ocp-primary" "$PRIMARY_INSTALL_DIR" &
+    install_one_cluster "ocp-secondary" "$SECONDARY_INSTALL_DIR" &
+    wait
+    log "Both spoke clusters installed."
 }
 
 scale_hub_workers() {
@@ -195,11 +237,11 @@ scale_hub_workers() {
 }
 
 deploy_pattern() {
-    log "Deploying RamenDR pattern..."
+    log "Deploying RamenDR pattern (BYOC mode)..."
     export KUBECONFIG="$HUB_INSTALL_DIR/auth/kubeconfig"
     cd "$SCRIPT_DIR"
 
-    log "Running pattern install (this takes ~20 minutes for operators, then ~50 minutes for managed clusters)..."
+    log "Running pattern install (this takes ~20 minutes for operators to settle)..."
     VALUES_SECRET="$VALUES_SECRET" ./pattern.sh make install 2>&1 || warn "Pattern install exited with warnings (expected during first sync)"
 
     log "Fixing Vault privatekey secret..."
@@ -254,9 +296,6 @@ show_status() {
     echo "--- Clusters ---"
     oc get managedclusters 2>&1 || echo "Cannot reach hub cluster"
     echo ""
-    echo "--- ClusterDeployments ---"
-    oc get clusterdeployments -A 2>&1
-    echo ""
     echo "--- ArgoCD Applications ---"
     oc get applications.argoproj.io -n ramendr-starter-kit-hub \
         -o custom-columns='NAME:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status' 2>&1
@@ -285,9 +324,19 @@ full_redeploy() {
     check_prerequisites
     cleanup_dns
     release_orphaned_eips
+
+    # Destroy all clusters (spokes in parallel, hub after)
+    destroy_managed_clusters
     destroy_hub
     cleanup_dns
-    install_hub
+
+    # Install all three clusters in parallel, then wait for all to complete
+    log "Starting parallel install of hub + ocp-primary + ocp-secondary..."
+    install_hub &
+    install_spokes &
+    wait
+    log "All three clusters installed."
+
     scale_hub_workers
     deploy_pattern
     wait_for_convergence
@@ -298,6 +347,7 @@ full_redeploy() {
 case "${1:-}" in
     --destroy-only)
         check_prerequisites
+        destroy_managed_clusters
         destroy_hub
         cleanup_dns
         release_orphaned_eips
@@ -316,15 +366,18 @@ case "${1:-}" in
     --help|-h)
         echo "Usage: ./redeploy.sh [--destroy-only|--pattern-only|--status|--help]"
         echo ""
-        echo "  (no args)        Full redeploy: destroy + install hub + deploy pattern"
+        echo "  (no args)        Full redeploy: destroy + install all 3 clusters in parallel + deploy pattern"
         echo "  --destroy-only   Destroy all clusters and clean up AWS resources"
         echo "  --pattern-only   Deploy pattern on an existing hub cluster"
         echo "  --status         Show current environment status"
         echo ""
         echo "Environment variables:"
-        echo "  HUB_INSTALL_DIR  Hub cluster install directory (default: ~/git/hub-cluster-install)"
-        echo "  VALUES_SECRET    Path to values-secret.yaml (default: ~/values-secret.yaml)"
-        echo "  HOSTED_ZONE_ID   Route53 hosted zone ID (default: Z01653801KMZNKX9NGW6G)"
+        echo "  HUB_INSTALL_DIR       Hub cluster install directory (default: ~/git/hub-cluster-install)"
+        echo "  PRIMARY_INSTALL_DIR   Primary spoke install directory (default: ~/git/ocp-primary-install)"
+        echo "  SECONDARY_INSTALL_DIR Secondary spoke install directory (default: ~/git/ocp-secondary-install)"
+        echo "  VALUES_SECRET         Path to values-secret.yaml (default: ~/values-secret.yaml)"
+        echo "  HUB_OCP_VERSION       OCP version for all clusters (default: 4.20.6)"
+        echo "  HOSTED_ZONE_ID        Route53 hosted zone ID (default: Z01653801KMZNKX9NGW6G)"
         ;;
     *)
         full_redeploy
