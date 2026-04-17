@@ -18,6 +18,8 @@ HOSTED_ZONE_ID="${HOSTED_ZONE_ID:-Z01653801KMZNKX9NGW6G}"
 BASE_DOMAIN="ecoengverticals-qe.devcluster.openshift.com"
 HUB_REGION="eu-central-1"
 SECONDARY_REGION="eu-west-1"
+# Target OCP version for the hub — must match the spoke versions in overrides/values-cluster-names.yaml
+HUB_OCP_VERSION="${HUB_OCP_VERSION:-4.20.6}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -37,6 +39,11 @@ check_prerequisites() {
             missing=1
         fi
     done
+    local got_ocp
+    got_ocp=$(openshift-install version 2>/dev/null | awk 'NR==1{print $2}')
+    if [[ "$got_ocp" != "$HUB_OCP_VERSION" ]]; then
+        warn "openshift-install is at $got_ocp, expected $HUB_OCP_VERSION — will auto-download at install time."
+    fi
     if [[ ! -f "$VALUES_SECRET" ]]; then
         err "Missing secrets file: $VALUES_SECRET"
         missing=1
@@ -116,7 +123,31 @@ destroy_hub() {
     fi
 }
 
+ensure_openshift_install_version() {
+    local want="$HUB_OCP_VERSION"
+    local got
+    got=$(openshift-install version 2>/dev/null | awk 'NR==1{print $2}')
+    if [[ "$got" == "$want" ]]; then
+        log "openshift-install is already at $want."
+        return 0
+    fi
+    log "openshift-install is at '$got', need $want — downloading..."
+    local url="https://mirror.openshift.com/pub/openshift-v4/clients/ocp/${want}/openshift-install-linux.tar.gz"
+    local tmp
+    tmp=$(mktemp -d)
+    curl -fsSL "$url" -o "$tmp/openshift-install.tar.gz"
+    tar -xzf "$tmp/openshift-install.tar.gz" -C "$tmp" openshift-install
+    chmod +x "$tmp/openshift-install"
+    # Install into the same directory as the current binary, or ~/bin if writable
+    local install_dir
+    install_dir=$(dirname "$(command -v openshift-install 2>/dev/null || echo "$HOME/bin/openshift-install")")
+    mv "$tmp/openshift-install" "$install_dir/openshift-install"
+    rm -rf "$tmp"
+    log "openshift-install $want installed to $install_dir."
+}
+
 install_hub() {
+    ensure_openshift_install_version
     log "Preparing hub cluster install directory..."
     cd "$HUB_INSTALL_DIR"
     setopt +o nomatch 2>/dev/null || true
