@@ -28,7 +28,8 @@ SECONDARY_INSTALL_DIR="${SECONDARY_INSTALL_DIR:-$HOME/git/ocp-secondary-install}
 VALUES_SECRET="${VALUES_SECRET:-$HOME/values-secret.yaml}"
 HOSTED_ZONE_ID="${HOSTED_ZONE_ID:-Z01653801KMZNKX9NGW6G}"
 BASE_DOMAIN="ecoengverticals-qe.devcluster.openshift.com"
-HUB_REGION="eu-central-1"
+HUB_REGION="eu-north-1"
+PRIMARY_REGION="eu-central-1"
 SECONDARY_REGION="eu-west-1"
 # Target OCP version for all clusters — hub + spokes should use the same minor version
 # to avoid ODF Multicluster Orchestrator incompatibilities.
@@ -118,7 +119,7 @@ else:
 
 release_orphaned_eips() {
     log "Releasing orphaned Elastic IPs..."
-    for region in "$HUB_REGION" "$SECONDARY_REGION"; do
+    for region in "$HUB_REGION" "$PRIMARY_REGION" "$SECONDARY_REGION"; do
         local eips
         eips=$(aws ec2 describe-addresses --region "$region" \
             --query 'Addresses[?AssociationId==null].AllocationId' --output text 2>/dev/null)
