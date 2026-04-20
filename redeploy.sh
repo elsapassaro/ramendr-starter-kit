@@ -221,6 +221,169 @@ install_spokes() {
     log "Both spoke clusters installed."
 }
 
+# ─── Spoke post-install: c5n.metal MachineSet for ODF + KVM ──────────────────
+#
+# ODF requires 3 worker nodes; openshift-install provisions only 2 m8i.4xlarge
+# workers (to save cost). This function creates a third node per spoke using a
+# c5n.metal instance (bare-metal, required for /dev/kvm hardware virtualisation).
+# The MachineSet is cloned from the first existing worker MachineSet with only
+# the instance type and root disk overridden, so subnet/AMI/SG are always correct.
+
+create_spoke_metal_machinesets() {
+    log "Creating c5n.metal MachineSets on spoke clusters (300 GiB root disk)..."
+    for entry in "ocp-primary:$PRIMARY_INSTALL_DIR" "ocp-secondary:$SECONDARY_INSTALL_DIR"; do
+        local cluster="${entry%%:*}"
+        local dir="${entry##*:}"
+        local kubeconfig="$dir/auth/kubeconfig"
+        [[ -f "$kubeconfig" ]] || { warn "  No kubeconfig for $cluster — skipping metal MachineSet."; continue; }
+
+        local infra_id
+        infra_id=$(python3 -c "import json; print(json.load(open('$dir/metadata.json'))['infraID'])")
+
+        # Clone the first (alphabetically) worker MachineSet as a template so we
+        # inherit the correct subnet, AMI, security groups, and region.
+        local template_name
+        template_name=$(KUBECONFIG="$kubeconfig" oc get machineset -n openshift-machine-api \
+            --no-headers -o custom-columns=':.metadata.name' 2>/dev/null | sort | head -1)
+        [[ -n "$template_name" ]] || { warn "  No MachineSet template found for $cluster — skipping."; continue; }
+
+        local metal_name="${infra_id}-metal"
+        log "  Cloning $template_name → $metal_name (c5n.metal, 300 GiB) on $cluster..."
+
+        KUBECONFIG="$kubeconfig" oc get machineset "$template_name" \
+                -n openshift-machine-api -o json 2>/dev/null | \
+        python3 -c "
+import sys, json, copy
+ms = json.load(sys.stdin)
+new_name = '${metal_name}'
+n = copy.deepcopy(ms)
+for k in ('resourceVersion','uid','generation','creationTimestamp','managedFields','annotations'):
+    n['metadata'].pop(k, None)
+n['metadata']['name'] = new_name
+n.pop('status', None)
+n['spec']['replicas'] = 1
+n['spec']['selector']['matchLabels']['machine.openshift.io/cluster-api-machineset'] = new_name
+n['spec']['template']['metadata']['labels']['machine.openshift.io/cluster-api-machineset'] = new_name
+pv = n['spec']['template']['spec']['providerSpec']['value']
+pv['instanceType'] = 'c5n.metal'
+# Preserve the root device name used by this AMI (typically /dev/xvda for RHCOS).
+bdm = pv.get('blockDeviceMappings', [])
+root_dev = bdm[0].get('deviceName', '/dev/xvda') if bdm else '/dev/xvda'
+pv['blockDeviceMappings'] = [{'deviceName': root_dev, 'ebs': {
+    'encrypted': True, 'kmsKey': {}, 'volumeSize': 300, 'volumeType': 'gp3'}}]
+print(json.dumps(n))
+" | KUBECONFIG="$kubeconfig" oc apply -f - 2>/dev/null && \
+        log "  MachineSet $metal_name created on $cluster." || \
+        warn "  MachineSet $metal_name may already exist on $cluster (apply failed — continuing)."
+    done
+}
+
+# Wait for c5n.metal nodes to join the spoke clusters, then label all workers
+# for ODF storage (m8i.4xlarge × 2 + c5n.metal × 1 = 3-node ODF quorum).
+wait_for_spoke_metal_nodes() {
+    log "Waiting for c5n.metal nodes on spoke clusters and labeling workers for ODF..."
+    for entry in "ocp-primary:$PRIMARY_INSTALL_DIR" "ocp-secondary:$SECONDARY_INSTALL_DIR"; do
+        local cluster="${entry%%:*}"
+        local dir="${entry##*:}"
+        local kubeconfig="$dir/auth/kubeconfig"
+        [[ -f "$kubeconfig" ]] || continue
+
+        log "  Waiting for c5n.metal node on $cluster (up to 30 min)..."
+        local tries=0
+        while [[ $tries -lt 60 ]]; do
+            local ready
+            ready=$(KUBECONFIG="$kubeconfig" oc get nodes \
+                -l node.kubernetes.io/instance-type=c5n.metal \
+                --no-headers 2>/dev/null | grep -c " Ready " || true)
+            [[ "$ready" -ge 1 ]] && { log "  c5n.metal node is Ready on $cluster."; break; }
+            sleep 30
+            tries=$((tries + 1))
+        done
+        [[ $tries -ge 60 ]] && \
+            warn "  Timeout waiting for c5n.metal node on $cluster — ODF may need manual intervention."
+
+        # Label every worker (m8i.4xlarge + c5n.metal) so ODF StorageCluster can
+        # schedule Ceph across all three nodes.
+        log "  Labeling worker nodes for ODF storage on $cluster..."
+        while IFS= read -r node; do
+            KUBECONFIG="$kubeconfig" oc label "$node" \
+                cluster.ocs.openshift.io/openshift-storage="" --overwrite 2>/dev/null || true
+        done < <(KUBECONFIG="$kubeconfig" oc get nodes \
+            -l node-role.kubernetes.io/worker -o name 2>/dev/null)
+        log "  All workers labeled for ODF on $cluster."
+    done
+}
+
+# ─── Spoke: kubeconfigs in Vault ──────────────────────────────────────────────
+#
+# The regionaldr chart's ExternalSecret template looks for:
+#   secret/hub/ocp-primary_cluster_kubeconfig   (underscore, not hyphen)
+#   secret/hub/ocp-secondary_cluster_kubeconfig
+#
+# Spoke clusters use self-signed certificates; the odf-ssl-certificate-extractor
+# Ansible job fails with SSLCertVerificationError unless we strip
+# certificate-authority-data and set insecure-skip-tls-verify: true.
+# Storing the insecure version here fixes both the path and the TLS issue.
+
+store_spoke_kubeconfigs_in_vault() {
+    log "Storing spoke kubeconfigs in Vault (insecure-skip-tls-verify for self-signed certs)..."
+    export KUBECONFIG="$HUB_INSTALL_DIR/auth/kubeconfig"
+
+    # Wait for Vault to be initialised and unsealed.
+    local tries=0
+    log "  Waiting for Vault to be ready..."
+    until oc exec -n vault vault-0 -- vault status 2>/dev/null | grep -q "Initialized.*true" && \
+          oc exec -n vault vault-0 -- vault status 2>/dev/null | grep -q "Sealed.*false"; do
+        [[ $tries -ge 40 ]] && { warn "  Vault not ready after 10 min — skipping kubeconfig storage."; return 1; }
+        sleep 15
+        tries=$((tries + 1))
+    done
+    log "  Vault is ready."
+
+    for entry in "ocp-primary:$PRIMARY_INSTALL_DIR" "ocp-secondary:$SECONDARY_INSTALL_DIR"; do
+        local cluster="${entry%%:*}"
+        local dir="${entry##*:}"
+        local kc_file="$dir/auth/kubeconfig"
+        [[ -f "$kc_file" ]] || { warn "  No kubeconfig at $kc_file — skipping."; continue; }
+
+        # Strip certificate-authority-data and add insecure-skip-tls-verify.
+        local tmp_kc
+        tmp_kc=$(mktemp)
+        python3 -c "
+import sys
+kc_file = '$kc_file'
+try:
+    import yaml
+    with open(kc_file) as f:
+        kc = yaml.safe_load(f)
+    for c in kc.get('clusters', []):
+        ci = c.get('cluster', {})
+        ci.pop('certificate-authority-data', None)
+        ci['insecure-skip-tls-verify'] = True
+    sys.stdout.write(yaml.dump(kc, default_flow_style=False))
+except ImportError:
+    import re
+    with open(kc_file) as f:
+        content = f.read()
+    content = re.sub(r'\n    certificate-authority-data: [^\n]+', '', content)
+    content = re.sub(r'(    server: [^\n]+)', r'\1\n    insecure-skip-tls-verify: true', content)
+    sys.stdout.write(content)
+" > "$tmp_kc"
+
+        # Use vault kv put key=@file to safely handle multiline YAML without quoting issues.
+        local vault_path="secret/hub/${cluster}_cluster_kubeconfig"
+        if oc cp "$tmp_kc" "vault/vault-0:/tmp/${cluster}-kubeconfig.yaml" 2>/dev/null && \
+           oc exec -n vault vault-0 -- \
+               vault kv put "$vault_path" "kubeconfig=@/tmp/${cluster}-kubeconfig.yaml" 2>/dev/null; then
+            oc exec -n vault vault-0 -- rm -f "/tmp/${cluster}-kubeconfig.yaml" 2>/dev/null || true
+            log "  Stored insecure kubeconfig for $cluster at $vault_path."
+        else
+            warn "  Failed to store kubeconfig for $cluster in Vault."
+        fi
+        rm -f "$tmp_kc"
+    done
+}
+
 scale_hub_workers() {
     log "Scaling hub workers to 6 (required for ODF)..."
     export KUBECONFIG="$HUB_INSTALL_DIR/auth/kubeconfig"
@@ -265,6 +428,10 @@ deploy_pattern() {
             ssh-privatekey="$privkey" ssh-publickey="$pubkey" 2>/dev/null
         log "  Vault secret/hub/privatekey created."
     fi
+
+    # Store spoke kubeconfigs in Vault at the paths the chart expects.
+    # Must run after Vault is up; must run before regional-dr ExternalSecrets sync.
+    store_spoke_kubeconfigs_in_vault
 }
 
 wait_for_convergence() {
@@ -349,7 +516,16 @@ full_redeploy() {
     wait
     log "All three clusters installed."
 
+    # Create c5n.metal MachineSets immediately so AWS starts provisioning the
+    # bare-metal nodes while we spend the next ~15 min scaling hub workers.
+    create_spoke_metal_machinesets
+
     scale_hub_workers
+
+    # By the time hub workers are done, the c5n.metal nodes have been
+    # provisioning for 15+ min. Wait for them to join and label for ODF.
+    wait_for_spoke_metal_nodes
+
     deploy_pattern
     wait_for_convergence
     show_status
@@ -367,7 +543,9 @@ case "${1:-}" in
         ;;
     --pattern-only)
         check_prerequisites
+        create_spoke_metal_machinesets
         scale_hub_workers
+        wait_for_spoke_metal_nodes
         deploy_pattern
         wait_for_convergence
         show_status
