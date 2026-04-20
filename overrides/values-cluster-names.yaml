@@ -11,10 +11,18 @@ clusterOverrides:
     name: ocp-primary
     version: 4.20.6
     byoc: true
+    install_config:
+      platform:
+        aws:
+          region: eu-central-1
   secondary:
     name: ocp-secondary
     version: 4.20.6
     byoc: true
+    install_config:
+      platform:
+        aws:
+          region: eu-west-1
 
 # DRPC overrides (preferredCluster defaults to primary if unset)
 drpc:
