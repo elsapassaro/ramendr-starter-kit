@@ -119,7 +119,18 @@ else:
 
 release_orphaned_eips() {
     log "Releasing orphaned Elastic IPs..."
-    for region in "$HUB_REGION" "$PRIMARY_REGION" "$SECONDARY_REGION"; do
+    # Derive actual regions from metadata.json (the install dir is the ground truth).
+    # Fall back to the configured region variables when metadata doesn't exist yet.
+    local hub_region primary_region secondary_region
+    hub_region=$(python3 -c "import json; print(json.load(open('$HUB_INSTALL_DIR/metadata.json'))['aws']['region'])" 2>/dev/null || echo "$HUB_REGION")
+    primary_region=$(python3 -c "import json; print(json.load(open('$PRIMARY_INSTALL_DIR/metadata.json'))['aws']['region'])" 2>/dev/null || echo "$PRIMARY_REGION")
+    secondary_region=$(python3 -c "import json; print(json.load(open('$SECONDARY_INSTALL_DIR/metadata.json'))['aws']['region'])" 2>/dev/null || echo "$SECONDARY_REGION")
+
+    # Deduplicate regions (hub and primary may share a region)
+    local regions
+    regions=$(echo -e "$hub_region\n$primary_region\n$secondary_region" | sort -u)
+
+    for region in $regions; do
         local eips
         eips=$(aws ec2 describe-addresses --region "$region" \
             --query 'Addresses[?AssociationId==null].AllocationId' --output text 2>/dev/null)
