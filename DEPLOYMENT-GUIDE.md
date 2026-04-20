@@ -76,15 +76,15 @@ Key components installed by the pattern:
 - **External Secrets Operator** — syncs secrets from Vault to Kubernetes
 - **Red Hat OpenShift GitOps (ArgoCD)** — GitOps-based deployment
 
-### Bare-Metal Worker Requirement (c5.metal)
+### Bare-Metal Worker Requirement (c5n.metal)
 
 OpenShift Virtualization (KubeVirt) requires `/dev/kvm` on worker nodes to schedule VMs. Standard EC2 instance types — including m5, m8i, c5, r5, and their variants — run on the AWS Nitro hypervisor and **do not** expose the `vmx`/`svm` CPU flags needed for KVM. As a result, `virt-handler` reports `devices.kubevirt.io/kvm: 0` on those nodes and VMs fail with `ErrorUnschedulable`.
 
-The solution is to provision at least **one bare-metal EC2 instance** (e.g. `c5.metal`) on each managed cluster. Bare-metal instances provide direct hardware access with full KVM support. The pattern creates a dedicated MachineSet with the `node-role.kubernetes.io/metal` label on both `ocp-primary` and `ocp-secondary` clusters.
+The solution is to include one **`c5n.metal`** bare-metal instance in the spoke `install-config.yaml.bak` as a second `worker` compute entry (see Step 3b). This provisions the bare-metal node alongside the standard workers during cluster installation, with a 300 GiB root volume to meet ODF storage requirements.
 
 **Both clusters need a metal node:** VMs initially run on the primary cluster, but during a DR failover they must start on the secondary cluster. Without a metal node there, failover will fail with the same `ErrorUnschedulable` error.
 
-> **Cost note:** `c5.metal`/`c5n.metal` instances are significantly more expensive than standard workers. Keep metal replicas at 0 when the environment is idle and scale to 1 only when testing KubeVirt VMs or DR failover.
+> **Cost note:** `c5n.metal` instances are significantly more expensive than standard workers. The 300 GiB root disk ensures ODF can use the node without hitting disk-pressure eviction thresholds.
 
 ---
 
@@ -332,12 +332,15 @@ compute:
     platform:
       aws:
         type: m8i.4xlarge
-  - name: metal
+  - name: worker
     replicas: 1
     platform:
       aws:
-        # bare-metal required for KubeVirt /dev/kvm — exposes devices.kubevirt.io/kvm
         type: c5n.metal
+        rootVolume:
+          iops: 3000
+          size: 300
+          type: gp3
 networking:
   clusterNetwork:
     - cidr: 10.132.0.0/14
@@ -378,12 +381,15 @@ compute:
     platform:
       aws:
         type: m8i.4xlarge
-  - name: metal
+  - name: worker
     replicas: 1
     platform:
       aws:
-        # bare-metal required for KubeVirt /dev/kvm — exposes devices.kubevirt.io/kvm
         type: c5n.metal
+        rootVolume:
+          iops: 3000
+          size: 300
+          type: gp3
 networking:
   clusterNetwork:
     - cidr: 10.136.0.0/14
@@ -408,7 +414,8 @@ EOF
 
 > **Key points:**
 > - Use **non-overlapping** CIDRs across all three clusters (hub, primary, secondary) — they must be reachable to each other via Submariner.
-> - The split compute pool (`worker` + `metal`) gives you 2× `m8i.4xlarge` for ODF workloads and 1× `c5n.metal` bare-metal node that exposes `/dev/kvm` for KubeVirt VMs.
+> - The two `worker` compute entries provision **2× `m8i.4xlarge`** (ODF storage) and **1× `c5n.metal`** (bare-metal, required for `/dev/kvm` and KubeVirt VMs). The 300 GiB root disk on `c5n.metal` prevents ODF disk-pressure evictions.
+> - Having all three worker nodes present from day 1 means the chart's `job-label-storage-nodes` job can label them all correctly for ODF without any post-install intervention.
 > - The `install-config.yaml.bak` is the source of truth; `openshift-install` consumes and deletes the `.yaml` copy, leaving only `.bak` for re-runs.
 
 ### Step 3c: Add Cost Attribution Tags (Recommended)
@@ -564,104 +571,24 @@ Expected deployment timeline (BYOC parallel mode):
 
 > With BYOC the total time is approximately **2 hours** end-to-end, compared to ~3 hours with sequential Hive-based provisioning.
 
-### Step 9: Add Bare-Metal Workers for KubeVirt
+### Step 9: Verify Bare-Metal Workers for KubeVirt
 
-After both managed clusters are provisioned and joined, add a `c5.metal` MachineSet to each. Without bare-metal workers, VMs will fail with `ErrorUnschedulable` because standard EC2 instances lack KVM support.
+With the `c5n.metal` compute entry in `install-config.yaml.bak` (see Step 3b), the bare-metal node is provisioned alongside the standard workers during cluster installation — no post-install MachineSet creation is needed.
 
-Run this for each managed cluster (replace the variables for the secondary cluster):
-
-```bash
-# Get the managed cluster's kubeconfig
-CLUSTER_NS="ocp-primary"   # then repeat for ocp-secondary
-KC_SECRET=$(oc get secrets -n $CLUSTER_NS -o name | grep admin-kubeconfig | head -1)
-oc get $KC_SECRET -n $CLUSTER_NS -o jsonpath='{.data.kubeconfig}' | base64 -d > /tmp/${CLUSTER_NS}-kc.yaml
-export KUBECONFIG=/tmp/${CLUSTER_NS}-kc.yaml
-
-# Discover cluster infrastructure details
-INFRA_ID=$(oc get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
-REGION=$(oc get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
-WORKER_MS=$(oc get machineset -n openshift-machine-api -o name | grep worker | head -1)
-AZ=$(oc get $WORKER_MS -n openshift-machine-api -o jsonpath='{.spec.template.spec.providerSpec.value.placement.availabilityZone}')
-AMI=$(oc get $WORKER_MS -n openshift-machine-api -o jsonpath='{.spec.template.spec.providerSpec.value.ami.id}')
-
-# Create the c5.metal MachineSet
-cat <<EOF | oc apply -f -
-apiVersion: machine.openshift.io/v1beta1
-kind: MachineSet
-metadata:
-  name: ${INFRA_ID}-metal-${AZ}
-  namespace: openshift-machine-api
-  labels:
-    machine.openshift.io/cluster-api-cluster: ${INFRA_ID}
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      machine.openshift.io/cluster-api-cluster: ${INFRA_ID}
-      machine.openshift.io/cluster-api-machineset: ${INFRA_ID}-metal-${AZ}
-  template:
-    metadata:
-      labels:
-        machine.openshift.io/cluster-api-cluster: ${INFRA_ID}
-        machine.openshift.io/cluster-api-machine-role: worker
-        machine.openshift.io/cluster-api-machine-type: worker
-        machine.openshift.io/cluster-api-machineset: ${INFRA_ID}-metal-${AZ}
-    spec:
-      metadata:
-        labels:
-          node-role.kubernetes.io/worker: ""
-          node-role.kubernetes.io/metal: ""
-      providerSpec:
-        value:
-          apiVersion: machine.openshift.io/v1beta1
-          kind: AWSMachineProviderConfig
-          ami:
-            id: ${AMI}
-          instanceType: c5.metal
-          placement:
-            availabilityZone: ${AZ}
-            region: ${REGION}
-          subnet:
-            filters:
-              - name: tag:Name
-                values:
-                  - ${INFRA_ID}-subnet-private-${AZ}
-          securityGroups:
-            - filters:
-                - name: tag:Name
-                  values:
-                    - ${INFRA_ID}-node
-          iamInstanceProfile:
-            id: ${INFRA_ID}-worker-profile
-          blockDevices:
-            - ebs:
-                volumeSize: 120
-                volumeType: gp3
-          credentialsSecret:
-            name: aws-cloud-credentials
-          userDataSecret:
-            name: worker-user-data
-EOF
-```
-
-Wait 15-20 minutes for the bare-metal instance to boot and join:
+Verify the node is Ready and KVM is exposed (allow 15–20 min for the bare-metal instance to boot):
 
 ```bash
-oc get machineset -n openshift-machine-api | grep metal
-# Wait until READY=1 and AVAILABLE=1
+# Check on ocp-primary
+export KUBECONFIG=~/git/ocp-primary-install/auth/kubeconfig
 
-oc get nodes -l node-role.kubernetes.io/metal=
+oc get nodes -l node.kubernetes.io/instance-type=c5n.metal
 # Should show a Ready node
-```
 
-Verify KVM is available:
-
-```bash
 oc get node <metal-node-name> -o jsonpath='{.status.allocatable.devices\.kubevirt\.io/kvm}'
 # Should show "1k"
 ```
 
-Repeat the entire process for `ocp-secondary` before testing DR failover.
+Repeat for `ocp-secondary` before testing DR failover.
 
 ### Step 10: Verify the Deployment
 
@@ -796,8 +723,8 @@ openshift-install destroy cluster --dir=~/git/hub-cluster-install --log-level=in
 | Managed cluster provision fails with `AddressLimitExceeded` | Increase EIP quota: `aws service-quotas request-service-quota-increase --service-code ec2 --quota-code L-0263D0A3 --desired-value 15 --region <REGION>` |
 | Hub ODF pods stuck Pending (`Insufficient cpu`) | Scale hub worker MachineSets: `oc scale machineset <name> -n openshift-machine-api --replicas=2` for each AZ |
 | New hub workers missing ODF label | Label nodes: `oc label node <NODE> cluster.ocs.openshift.io/openshift-storage=""` |
-| VMs stuck in `ErrorUnschedulable` (Insufficient `devices.kubevirt.io/kvm`) | Standard EC2 instances lack KVM. Add a `c5.metal` MachineSet — see [Step 9](#step-9-add-bare-metal-workers-for-kubevirt) |
-| Metal MachineSet stuck in `Provisioned` for >15 min | Bare-metal instances take 15-20 min to boot. Check CSRs: `oc get csr`; approve any pending with `oc adm certificate approve <name>` |
+| VMs stuck in `ErrorUnschedulable` (Insufficient `devices.kubevirt.io/kvm`) | Standard EC2 instances lack KVM. Ensure `install-config.yaml.bak` includes a `c5n.metal` worker entry — see Step 3b |
+| `c5n.metal` node not Ready after 20 min | Bare-metal instances take 15-20 min to boot. Check CSRs: `oc get csr`; approve any pending with `oc adm certificate approve <name>` |
 | ExternalSecrets can't find `secret/hub/privatekey` | Create it in Vault: `oc exec -n vault vault-0 -- vault kv put secret/hub/privatekey privatekey="$(cat ~/.ssh/id_ed25519)"` |
 | `regional-dr` stuck on prerequisites checker | Manually create the Job if ArgoCD sync is deadlocked: `oc apply -f` the Job manifest from `charts/hub/rdr/templates/job-odf-dr-prerequisites.yaml` |
 | Managed cluster shows `ProvisionStopped` but is actually running | If the cluster API is reachable, patch the CD: `oc patch clusterdeployment <name> -n <ns> --type merge -p '{"spec":{"installed":true,"clusterMetadata":{...}}}'` |
@@ -848,8 +775,8 @@ done
 | Cluster | Name | Region | Instance Types | Notes |
 |---|---|---|---|---|
 | Hub | `hub` | `eu-north-1` | 3x `m5.2xlarge` masters, 6x `m5.xlarge` workers | Runs ACM, ArgoCD, Vault, ODF orchestrator |
-| Primary | `ocp-primary` | `eu-central-1` | 3x `m5.2xlarge` masters, 2x `m8i.4xlarge` + 1x `c5n.metal` workers | Runs VMs (on metal node), primary DR site |
-| Secondary | `ocp-secondary` | `eu-west-1` | 3x `m5.2xlarge` masters, 2x `m8i.4xlarge` + 1x `c5n.metal` workers | Secondary DR site (failover target), metal node needed for failover VMs |
+| Primary | `ocp-primary` | `eu-central-1` | 3x `m5.2xlarge` masters, 2x `m8i.4xlarge` workers + 1x `c5n.metal` (added post-install via MachineSet) | Runs VMs (on metal node), primary DR site |
+| Secondary | `ocp-secondary` | `eu-west-1` | 3x `m5.2xlarge` masters, 2x `m8i.4xlarge` workers + 1x `c5n.metal` (added post-install via MachineSet) | Secondary DR site (failover target), metal node needed for failover VMs |
 
 ### Networking (configured in `overrides/values-cluster-names.yaml` and spoke `install-config.yaml.bak`)
 
@@ -1098,8 +1025,8 @@ watch 'oc get applications.argoproj.io -n ramendr-starter-kit-hub -o custom-colu
 | Clusters auto-destroyed after a few days | `devcluster.openshift.com` has automatic TTL cleanup | Use `./redeploy.sh` to rebuild the entire environment |
 | Submariner `subscription` fails with `no operators found in package submariner` on OCP 4.21 | The `redhat-operator-index:v4.21` catalog does not yet include the `submariner` package | Fixed in v1.1: a `ManifestWork` deploys a custom `submariner-catalog` CatalogSource (backed by `redhat-operator-index:v4.20`) to each managed cluster; `SubmarinerConfig.subscriptionConfig` points to it |
 | Submariner gateway node stuck in `Provisioned` / `rpm-ostreed.service` crash loop on OCP 4.21 | `c5d`/`r5d`/`m5d` instance types have NVMe local SSD; RHCOS on OCP 4.21 fails to boot on these | Fixed in v1.1: gateway instance type changed from `c5d.large` to `m5.large` (no local NVMe) |
-| VMs `ErrorUnschedulable`: `Insufficient devices.kubevirt.io/kvm` | Standard EC2 instances (m5, m8i, c5, etc.) do not expose `vmx`/`svm` CPU flags — `/dev/kvm` is missing | Add a `c5.metal` bare-metal MachineSet to each managed cluster (see Step 9). Metal instances provide native KVM support. |
-| DR failover fails with `ErrorUnschedulable` on secondary cluster | Secondary cluster has no metal worker, so VMs cannot be scheduled there | Add a `c5n.metal` MachineSet to the secondary cluster before testing failover — or include it in the `install-config.yaml.bak` compute pool from the start |
+| VMs `ErrorUnschedulable`: `Insufficient devices.kubevirt.io/kvm` | Standard EC2 instances (m5, m8i, c5, etc.) do not expose `vmx`/`svm` CPU flags — `/dev/kvm` is missing | Ensure `install-config.yaml.bak` includes a second `worker` compute entry with `type: c5n.metal` and `rootVolume.size: 300` (see Step 3b). |
+| DR failover fails with `ErrorUnschedulable` on secondary cluster | Secondary cluster has no metal worker, so VMs cannot be scheduled there | Include `c5n.metal` in `ocp-secondary`'s `install-config.yaml.bak` compute section (same as primary). |
 | `odf-ssl-certificate-extractor` job fails with `SSLCertVerificationError` | Ansible's `kubernetes.core.k8s_info` module does not honour `certificate-authority-data` in kubeconfigs, causing SSL verification to fail against self-signed OCP API certificates | Generate insecure kubeconfigs with `oc login --insecure-skip-tls-verify` and patch the admin kubeconfig secrets on the hub; or set `insecure-skip-tls-verify: true` in the kubeconfig files stored in Vault |
 | Spoke install fails in a region with `InvalidNatGatewayID.NotFound` | AWS NAT Gateway provisioning race condition; some regions are more prone to this | Destroy the partial infra (`openshift-install destroy cluster --dir ...`) and retry, or switch to a different AZ/region |
 | ODF version mismatch: `StorageCluster version on ManagedCluster is incompatible with Multicluster Orchestrator version` | Hub ODF and spoke ODF must be on the same minor version | Pin all clusters to the same OCP version in `overrides/values-cluster-names.yaml` (`ocpVersion: "4.20"`) and ensure `values-hub.yaml` ODF subscriptions use `stable-4.20` channel |
