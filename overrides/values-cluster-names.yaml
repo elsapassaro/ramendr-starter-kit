@@ -6,6 +6,9 @@
 # and ocp-secondary-kubeconfig). All install_config AWS details are handled
 # externally by openshift-install.
 
+# Top-level BYOC flag required by the chart template ($.Values.byoc).
+byoc: true
+
 clusterOverrides:
   primary:
     name: ocp-primary
