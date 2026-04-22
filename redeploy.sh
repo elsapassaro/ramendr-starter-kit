@@ -323,28 +323,28 @@ wait_for_spoke_metal_nodes() {
 # Storing the insecure version here fixes both the path and the TLS issue.
 
 store_spoke_kubeconfigs_in_vault() {
-    log "Storing spoke kubeconfigs in Vault (insecure-skip-tls-verify for self-signed certs)..."
+    log "[vault-kc] Storing spoke kubeconfigs in Vault (insecure-skip-tls-verify for self-signed certs)..."
     export KUBECONFIG="$HUB_INSTALL_DIR/auth/kubeconfig"
 
-    # Stage 1: wait for the vault-0 pod to be Running.
+    # Stage 1: wait for the vault-0 pod to be Running (up to 10 min).
     local tries=0
-    log "  Waiting for vault-0 pod to be Running..."
+    log "[vault-kc] Waiting for vault-0 pod to be Running..."
     until oc get pod vault-0 -n vault --no-headers 2>/dev/null | grep -q " Running "; do
-        [[ $tries -ge 40 ]] && { warn "  vault-0 pod not Running after 10 min — skipping kubeconfig storage."; return 1; }
+        [[ $tries -ge 40 ]] && { warn "[vault-kc] vault-0 pod not Running after 10 min — skipping kubeconfig storage."; return 1; }
         sleep 15
         tries=$((tries + 1))
     done
 
     # Stage 2: wait for Vault to be initialised and unsealed (up to 20 min).
     tries=0
-    log "  Waiting for Vault to be initialized and unsealed..."
+    log "[vault-kc] Waiting for Vault to be initialized and unsealed..."
     until oc exec -n vault vault-0 -- vault status 2>/dev/null | grep -q "Initialized.*true" && \
           oc exec -n vault vault-0 -- vault status 2>/dev/null | grep -q "Sealed.*false"; do
-        [[ $tries -ge 80 ]] && { warn "  Vault not ready after 20 min — skipping kubeconfig storage."; return 1; }
+        [[ $tries -ge 80 ]] && { warn "[vault-kc] Vault not ready after 20 min — skipping kubeconfig storage."; return 1; }
         sleep 15
         tries=$((tries + 1))
     done
-    log "  Vault is ready."
+    log "[vault-kc] Vault is ready."
 
     for entry in "ocp-primary:$PRIMARY_INSTALL_DIR" "ocp-secondary:$SECONDARY_INSTALL_DIR"; do
         local cluster="${entry%%:*}"
@@ -386,15 +386,15 @@ except ImportError:
                oc exec -n vault vault-0 -- \
                    vault kv put "$vault_path" "kubeconfig=@/tmp/${cluster}-kubeconfig.yaml" 2>/dev/null; then
                 oc exec -n vault vault-0 -- rm -f "/tmp/${cluster}-kubeconfig.yaml" 2>/dev/null || true
-                log "  Stored insecure kubeconfig for $cluster at $vault_path."
+                log "[vault-kc] Stored insecure kubeconfig for $cluster at $vault_path."
                 stored=true
                 break
             fi
             write_tries=$((write_tries + 1))
-            warn "  Write attempt $write_tries/5 failed for $cluster — retrying in 15s..."
+            warn "[vault-kc] Write attempt $write_tries/5 failed for $cluster — retrying in 15s..."
             sleep 15
         done
-        [[ "$stored" == "false" ]] && warn "  Failed to store kubeconfig for $cluster in Vault after 5 attempts."
+        [[ "$stored" == "false" ]] && warn "[vault-kc] Failed to store kubeconfig for $cluster in Vault after 5 attempts."
         rm -f "$tmp_kc"
     done
 }
@@ -431,8 +431,35 @@ deploy_pattern() {
     export KUBECONFIG="$HUB_INSTALL_DIR/auth/kubeconfig"
     cd "$SCRIPT_DIR"
 
+    # Start storing spoke kubeconfigs in Vault as a background job that runs
+    # concurrently with the pattern install.  The function has its own wait loops
+    # for Vault readiness (pod Running → initialized → unsealed), so it will write
+    # the kubeconfigs as soon as Vault is ready — typically 5-10 min into the
+    # pattern install, well before ArgoCD syncs regional-dr and the ExternalSecrets
+    # make their first pull.  Running it here (rather than after pattern.sh returns)
+    # is the key fix: pattern.sh blocks for ~20 min on its Ansible wait loop, and
+    # without this the kubeconfigs would not be in Vault until after regional-dr has
+    # already cached a SecretSyncedError.
+    store_spoke_kubeconfigs_in_vault &
+    local store_pid=$!
+
     log "Running pattern install (this takes ~20 minutes for operators to settle)..."
     VALUES_SECRET="$VALUES_SECRET" ./pattern.sh make install 2>&1 || warn "Pattern install exited with warnings (expected during first sync)"
+
+    # Wait for the background store job.  It should be long done by now, but block
+    # just in case Vault took unusually long to initialise.
+    if ! wait "$store_pid"; then
+        warn "store_spoke_kubeconfigs_in_vault background job failed — retrying synchronously..."
+        store_spoke_kubeconfigs_in_vault
+    fi
+
+    # Force-refresh all kubeconfig ExternalSecrets so that any cached failure is
+    # cleared immediately, without waiting for the 24 h refresh interval.
+    log "Force-refreshing kubeconfig ExternalSecrets..."
+    for cluster in ocp-primary ocp-secondary; do
+        oc annotate externalsecret -n "$cluster" --all \
+            force-sync="$(date +%s)" --overwrite 2>/dev/null || true
+    done
 
     log "Fixing Vault privatekey secret..."
     local privkey pubkey
@@ -443,10 +470,6 @@ deploy_pattern() {
             ssh-privatekey="$privkey" ssh-publickey="$pubkey" 2>/dev/null
         log "  Vault secret/hub/privatekey created."
     fi
-
-    # Store spoke kubeconfigs in Vault at the paths the chart expects.
-    # Must run after Vault is up; must run before regional-dr ExternalSecrets sync.
-    store_spoke_kubeconfigs_in_vault
 }
 
 wait_for_convergence() {
