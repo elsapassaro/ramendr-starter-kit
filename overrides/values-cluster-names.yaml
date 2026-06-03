@@ -4,25 +4,32 @@
 # (clusterOverrides, drpc) so chart regionalDR defaults are preserved.
 # Also works if merged first: -f overrides/values-cluster-names.yaml -f charts/hub/rdr/values.yaml
 
+costManagement:
+  ownerTag: storage-migration-qe
+  launchedByTag: automation-user
+  environmentTag: dev
+
 clusterOverrides:
   primary:
     name: ocp-primary
-    version: 4.20.6
+    version: 4.21.14
+    byoc: true
     install_config:
       metadata:
         name: ocp-primary
       platform:
         aws:
-          region: us-west-1
+          region: eu-central-1
   secondary:
     name: ocp-secondary
-    version: 4.20.6
+    version: 4.21.14
+    byoc: true
     install_config:
       metadata:
         name: ocp-secondary
       platform:
         aws:
-          region: us-east-1
+          region: eu-west-1
 
 # DRPC overrides (preferredCluster defaults to primary if unset)
 drpc:
@@ -33,4 +40,4 @@ drpc:
 # ./pattern.sh make install-byoc.
 # That target will run a validation play to ensure the cluster
 # setup will work with ramen patterns
-byoc: false
+byoc: true
