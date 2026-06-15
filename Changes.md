@@ -39,3 +39,10 @@ v1.2 - June 2026
 * Default to OCP 4.22
 * Update to ACM chart v0.2.*
 * Use versioned charts for opp-policy, regionaldr, and application data protection
+* Pin ODF to stable-4.21 on hub and spokes (ODF 4.21 supported on OCP 4.22 until ODF 4.22 GA)
+
+ocp-4.22 branch customizations (June 2026)
+
+* BYOC mode with eu-central-1 / eu-west-1 regions for storage-ui-tests
+* costManagement tags for storage-migration-qe
+* additionalDisks and Windows VM scaffolding in values-egv-dr
