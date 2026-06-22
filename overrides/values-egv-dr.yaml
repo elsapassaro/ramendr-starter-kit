@@ -47,8 +47,8 @@ vms:
     role: server
     os: windows2k22
     efi: true
-    mainDiskStorageBus: sata
-    storage: 40Gi
+    # mainDiskStorageBus: virtio (chart default; avoids libvirt IOError auto-pause seen with sata)
+    storage: 45Gi
     memory: 8Gi
     cores: 2
     machineType: q35
@@ -73,8 +73,8 @@ vms:
     role: server
     os: windows2k25
     efi: true
-    mainDiskStorageBus: sata
-    storage: 40Gi
+    # mainDiskStorageBus: virtio (chart default; see windows2022 comment)
+    storage: 45Gi
     memory: 8Gi
     cores: 2
     machineType: q35
@@ -95,19 +95,20 @@ vms:
         storage: 10Gi
 
 # One CDI import per Windows image per cluster; VMs clone from the DataSource.
+# CDI size uses decimal G; Quay images are 40 GiB qcow2 — 40G import PVC is too small.
 externalDataSources:
   windows2k22:
     name: windows2k22
     type: registry
     url: 'docker://quay.io/martjack/windows-server-2022-standard:latest'
     registryCredentialsSecret: windows-registry-creds
-    size: 40G
+    size: 45G
   windows2k25:
     name: windows2k25
     type: registry
     url: 'docker://quay.io/martjack/windows-server-2025-standard:latest'
     registryCredentialsSecret: windows-registry-creds
-    size: 40G
+    size: 45G
 
 registryCredentialExternalSecrets:
   windows-registry-creds:
