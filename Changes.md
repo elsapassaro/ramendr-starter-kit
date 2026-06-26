@@ -44,5 +44,5 @@ v1.2 - June 2026
 ocp-4.22 branch customizations (June 2026)
 
 * BYOC mode with eu-central-1 / eu-west-1 regions for storage-ui-tests
-* costManagement tags for storage-migration-qe
+* costManagement `ownerTag` set to `storage-migration-qe` for AWS cost tracking (storage-ui-tests workload)
 * additionalDisks and Windows VM scaffolding in values-egv-dr
