@@ -79,7 +79,7 @@
             secondary_cluster_version: "{{ secondary_clusterversion_raw.resources[0].status.desired.version.split('.')[:2] | join('.') }}"
             hub_cluster_version: "{{ hub_clusterversion_raw.resources[0].status.desired.version.split('.')[:2] | join('.') }}"
 
-      - name: Validate BYOC DR Clusters have the same minor version between 4.18 and 4.22
+      - name: Validate BYOC DR clusters share the same minor version (minimum 4.18)
         ansible.builtin.assert:
           that:
             - hub_cluster_version is ansible.builtin.version("4.18", ">=")

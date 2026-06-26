@@ -8,12 +8,12 @@
 # compute section directly in the spoke install-config.yaml.bak files:
 #
 # compute:
-# - name: worker
-# replicas: 3
-# platform:
-# aws:
-# type: c5n.metal # bare-metal required for KubeVirt /dev/kvm
-# spotMarketOptions: {} # spot pricing � 2-min reclaim warning
+#   - name: worker
+#     replicas: 3
+#     platform:
+#       aws:
+#         type: c5n.metal # bare-metal required for KubeVirt /dev/kvm
+#         spotMarketOptions: {} # spot pricing - 2-min reclaim warning
 #
 # IMPORTANT:
 # - Spot capacity can be reclaimed with a 2-minute warning.
