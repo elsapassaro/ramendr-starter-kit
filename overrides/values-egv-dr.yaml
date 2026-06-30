@@ -2,10 +2,14 @@
 # Mixed Linux + Windows edge VMs for DR testing on gitops-vms.
 # Linux: cloud-init + SSH keys from Vault (disableExternalSecrets must stay false).
 # Windows: CDI registry import + OpenSSH on port 22 (Administrator password in ~/values-secret.yaml).
+# Must be false so edge VMs get a cloud-init disk (user/password/SSH from Vault).
+# Secrets still come from ~/values-secret.yaml via pattern load-secrets; do not set true unless
+# you attach cloud-init another way (see dr-validation/examples/cloud-init-fragment.yaml).
 disableExternalSecrets: false
 waitForMetalNode: false
 
 edgeGitopsVms:
+  # Minimum version that supports additionalDisks (introduced in 0.5.0).
   chartVersion: "0.5.0"
 
 vmDefaults:
@@ -36,6 +40,8 @@ vmDefaults:
   additionalDisks:
     - name: data
       storage: 10Gi
+      # accessMode, storageClassName, and volumeMode are inherited from vmDefaults
+      # (ReadWriteMany / ocs-storagecluster-ceph-rbd-virtualization / Block)
 
 vms:
   edgenode:

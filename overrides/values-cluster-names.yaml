@@ -13,6 +13,7 @@ clusterOverrides:
   primary:
     name: ocp-primary
     version: 4.22.1
+    byoc: true
     install_config:
       metadata:
         name: ocp-primary
@@ -22,6 +23,7 @@ clusterOverrides:
   secondary:
     name: ocp-secondary
     version: 4.22.1
+    byoc: true
     install_config:
       metadata:
         name: ocp-secondary
