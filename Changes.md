@@ -38,10 +38,11 @@ v1.2 - June 2026
 * Use productized OpenShift External Secrets operator
 * Default to OCP 4.22
 * Update to ACM chart v0.2.*
+* Use versioned charts for opp-policy, regionaldr, and application data protection
 * Pin ODF to stable-4.21 on hub and spokes (ODF 4.21 supported on OCP 4.22 until ODF 4.22 GA)
 
 ocp-4.22 branch customizations (June 2026)
 
 * BYOC mode with eu-central-1 / eu-west-1 regions for storage-ui-tests
 * costManagement `ownerTag` set to `storage-migration-qe` for AWS cost tracking (storage-ui-tests workload)
-* additionalDisks and Windows VM scaffolding in values-egv-dr
+* mixed Linux + Windows edge VMs with additionalDisks in values-egv-dr

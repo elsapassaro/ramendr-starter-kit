@@ -1,4 +1,7 @@
 ---
+# Mixed Linux + Windows edge VMs for DR testing on gitops-vms.
+# Linux: cloud-init + SSH keys from Vault (disableExternalSecrets must stay false).
+# Windows: CDI registry import + OpenSSH on port 22 (Administrator password in ~/values-secret.yaml).
 # Must be false so edge VMs get a cloud-init disk (user/password/SSH from Vault).
 # Secrets still come from ~/values-secret.yaml via pattern load-secrets; do not set true unless
 # you attach cloud-init another way (see dr-validation/examples/cloud-init-fragment.yaml).
@@ -29,8 +32,6 @@ vmDefaults:
   publishService: true
   extraLabels:
     drprotection: true
-  # extraLabels is available for default extra labels to add to the virtualmachine
-  # extraAnnotations is available for default extra labels to add to the virtualmachine
   ports:
     - name: ssh
       port: 22
@@ -44,42 +45,77 @@ vmDefaults:
 
 vms:
   edgenode:
-    count: 4
+    count: 2
     role: node
 
-  # Windows Server 2022 VM � requires a Windows image in a container registry.
-  # The DataVolume (50 Gi) is pulled once and stored in ODF; subsequent VMs
-  # clone from that DataSource so the image is only downloaded once per cluster.
-  # Set count: 0 to disable without removing the configuration.
-  #
-  # windows:
-  #   count: 1
-  #   role: desktop
-  #   os: windows2k22
-  #   dataSource: windows2k22 # references externalDataSources below
-  #   efi: true # Windows requires UEFI boot
-  #   mainDiskStorageBus: sata # virtio disk driver not available on bare Windows
-  #   storage: 50Gi
-  #   memory: 8Gi
-  #   cores: 2
-  #   template: windows2k22-server-medium
-  #   ports:
-  #     - name: rdp
-  #       port: 3389
-  #       protocol: TCP
-  #       targetPort: 3389
+  windows2022:
+    count: 1
+    role: server
+    os: windows2k22
+    efi: true
+    # mainDiskStorageBus: virtio (chart default; avoids libvirt IOError auto-pause seen with sata)
+    storage: 45Gi
+    memory: 8Gi
+    cores: 2
+    machineType: q35
+    template: windows2k22-server-medium
+    extraLabels:
+      drprotection: true
+    ports:
+      - name: ssh
+        port: 22
+        protocol: TCP
+        targetPort: 22
+      - name: rdp
+        port: 3389
+        protocol: TCP
+        targetPort: 3389
+    additionalDisks:
+      - name: data
+        storage: 10Gi
 
-# Uncomment once you have a Windows container image available in a registry
-# and have added the privatevm-credentials secret to ~/values-secret.yaml.
-#
-# externalDataSources:
-#   windows2k22:
-#     name: windows2k22
-#     type: registry
-#     url: 'docker://<REGISTRY>/<REPO>:<TAG>'
-#     registryCredentialsSecret: windows-registry-creds
-#     size: 50G
-#
-# registryCredentialExternalSecrets:
-#   windows-registry-creds:
-#     vaultKey: secret/data/global/privatevm-credentials
+  windows2025:
+    count: 1
+    role: server
+    os: windows2k25
+    efi: true
+    # mainDiskStorageBus: virtio (chart default; see windows2022 comment)
+    storage: 45Gi
+    memory: 8Gi
+    cores: 2
+    machineType: q35
+    template: windows2k25-server-medium
+    extraLabels:
+      drprotection: true
+    ports:
+      - name: ssh
+        port: 22
+        protocol: TCP
+        targetPort: 22
+      - name: rdp
+        port: 3389
+        protocol: TCP
+        targetPort: 3389
+    additionalDisks:
+      - name: data
+        storage: 10Gi
+
+# One CDI import per Windows image per cluster; VMs clone from the DataSource.
+# CDI size uses decimal G; Quay images are 40 GiB qcow2 — 40G import PVC is too small.
+externalDataSources:
+  windows2k22:
+    name: windows2k22
+    type: registry
+    url: 'docker://quay.io/martjack/windows-server-2022-standard:latest'
+    registryCredentialsSecret: windows-registry-creds
+    size: 45G
+  windows2k25:
+    name: windows2k25
+    type: registry
+    url: 'docker://quay.io/martjack/windows-server-2025-standard:latest'
+    registryCredentialsSecret: windows-registry-creds
+    size: 45G
+
+registryCredentialExternalSecrets:
+  windows-registry-creds:
+    vaultKey: secret/data/global/privatevm-credentials

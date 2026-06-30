@@ -116,8 +116,7 @@ clusterGroup:
       name: adp-data-protection-application
       namespace: openshift-adp
       argoProject: resilient
-      repoURL: https://github.com/validatedpatterns/oadp-data-protection-application-chart.git
-      chartVersion: main
-      path: "."
+      chart: data-protection-application
+      chartVersion: 0.0.*
 
   managedClusterGroups: []
