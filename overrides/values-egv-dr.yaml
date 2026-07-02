@@ -8,10 +8,6 @@
 disableExternalSecrets: false
 waitForMetalNode: false
 
-edgeGitopsVms:
-  # Minimum version that supports additionalDisks (introduced in 0.5.0).
-  chartVersion: "0.5.0"
-
 vmDefaults:
   accessMode: "ReadWriteMany"
   storageClassName: "ocs-storagecluster-ceph-rbd-virtualization"
@@ -37,21 +33,30 @@ vmDefaults:
       port: 22
       protocol: TCP
       targetPort: 22
-  additionalDisks:
-    - name: data
-      storage: 10Gi
-      # accessMode, storageClassName, and volumeMode are inherited from vmDefaults
-      # (ReadWriteMany / ocs-storagecluster-ceph-rbd-virtualization / Block)
 
 vms:
   edgenode:
-    count: 2
+    count: 1
     role: node
+    additionalDisks:
+      - name: data
+        storage: 10Gi
+
+  edgenode-pvc:
+    count: 1
+    role: node-pvc
+    additionalPvcDisks:
+      - name: data
+        storage: 10Gi
+        # create: true (default) — chart creates a standalone PVC, not a DataVolume
+        # accessMode, storageClassName, and volumeMode are inherited from vmDefaults
+        # (ReadWriteMany / ocs-storagecluster-ceph-rbd-virtualization / Block)
 
   windows2022:
     count: 1
     role: server
     os: windows2k22
+    storageClassName: "ocs-storagecluster-ceph-rbd-virtualization"
     efi: true
     # mainDiskStorageBus: virtio (chart default; avoids libvirt IOError auto-pause seen with sata)
     storage: 45Gi
@@ -78,6 +83,7 @@ vms:
     count: 1
     role: server
     os: windows2k25
+    storageClassName: "ocs-storagecluster-ceph-rbd-virtualization"
     efi: true
     # mainDiskStorageBus: virtio (chart default; see windows2022 comment)
     storage: 45Gi
@@ -96,7 +102,7 @@ vms:
         port: 3389
         protocol: TCP
         targetPort: 3389
-    additionalDisks:
+    additionalPvcDisks:
       - name: data
         storage: 10Gi
 
