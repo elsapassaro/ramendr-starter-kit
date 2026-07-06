@@ -8,6 +8,10 @@
 disableExternalSecrets: false
 waitForMetalNode: false
 
+# Pin >= 0.5.2 for additionalPvcDisks.
+edgeGitopsVms:
+  chartVersion: "0.5.2"
+
 vmDefaults:
   accessMode: "ReadWriteMany"
   storageClassName: "ocs-storagecluster-ceph-rbd-virtualization"
