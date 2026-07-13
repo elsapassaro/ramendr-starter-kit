@@ -46,3 +46,7 @@ ocp-4.22 branch customizations (June 2026)
 * BYOC mode with eu-central-1 / eu-west-1 regions for storage-ui-tests
 * costManagement `ownerTag` set to `storage-migration-qe` for AWS cost tracking (storage-ui-tests workload)
 * mixed Linux + Windows edge VMs with additionalDisks in values-egv-dr
+
+odf-4.22 branch customizations (July 2026)
+
+* Upgrade ODF operator subscriptions to stable-4.22 on hub and resilient spokes (ODF 4.22 GA alongside OCP 4.22)
