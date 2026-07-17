@@ -1,5 +1,5 @@
 MAKEFLAGS += --no-print-directory
-ANSIBLE_STDOUT_CALLBACK ?= null # null silences all ansible output. Override this with default, minimal, oneline, etc. when debugging.
+ANSIBLE_STDOUT_CALLBACK ?= default # null silences all ansible output. Override this with default, minimal, oneline, etc. when debugging.
 ANSIBLE_RUN := ANSIBLE_STDOUT_CALLBACK=$(ANSIBLE_STDOUT_CALLBACK) ansible-playbook $(EXTRA_PLAYBOOK_OPTS)
 DOCS_URL := https://validatedpatterns.io/blog/2025-08-29-new-common-makefile-structure/
 

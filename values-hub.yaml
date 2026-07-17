@@ -15,6 +15,10 @@ clusterGroup:
     openshift-dr-ops: {}
     openshift-storage: {}
     policies: {}
+  indexImages:
+    rhdr-ramen:
+      name: rhdr-ramen-catalog
+      image: quay.io/openshift-virtualization-dr/rhdr-mirror:fbc-index-staging@sha256:477684df81243258b957c955ddc1de2ec4983f0af81b7198e88da1e41f8b040a
   subscriptions:
     acm:
       name: advanced-cluster-management
@@ -27,9 +31,10 @@ clusterGroup:
       channel: stable-v1
 
     odf-multicluster-orchestrator:
-      name: odf-multicluster-orchestrator
+      name: rhdr-multicluster-operator
       namespace: openshift-operators
       channel: stable-4.22
+      source: rhdr-ramen-catalog
 
     openshift-data-foundation:
       name: odf-operator
