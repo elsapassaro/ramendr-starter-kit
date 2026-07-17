@@ -25,7 +25,7 @@ clusterGroup:
   indexImages:
     rhdr-ramen:
       name: rhdr-ramen-catalog
-      image: quay.io/openshift-virtualization-dr/rhdr-mirror:fbc-index-staging@sha256:477684df81243258b957c955ddc1de2ec4983f0af81b7198e88da1e41f8b040a
+      image: quay.io/openshift-virtualization-dr/rhdr-mirror:fbc-index-staging@sha256:04d4c8f9710bf7220073ce4b0ed5c126cb2b499336d95c70bb1cfe04a89d675d
 
   subscriptions:
     openshift-virtualization:
