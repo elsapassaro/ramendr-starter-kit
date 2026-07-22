@@ -85,3 +85,30 @@ spec:
   - mirrors:
     - quay.io/openshift-virtualization-dr/rhdr-mirror
     source: registry.redhat.io/openshift4/ose-kube-rbac-proxy-rhel9
+  - mirrors:
+    - quay.io/openshift-virtualization-dr/rhdr-mirror
+    source: quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-cluster-operator-bundle-4-22
+  - mirrors:
+    - quay.io/openshift-virtualization-dr/rhdr-mirror
+    source: quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-csi-addons-operator-4-22
+  - mirrors:
+    - quay.io/openshift-virtualization-dr/rhdr-mirror
+    source: quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-csi-addons-operator-bundle-4-22
+  - mirrors:
+    - quay.io/openshift-virtualization-dr/rhdr-mirror
+    source: quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-csi-addons-sidecar-4-22
+  - mirrors:
+    - quay.io/openshift-virtualization-dr/rhdr-mirror
+    source: quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-hub-operator-bundle-4-22
+  - mirrors:
+    - quay.io/openshift-virtualization-dr/rhdr-mirror
+    source: quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-multicluster-operator-bundle-4-22
+  - mirrors:
+    - quay.io/openshift-virtualization-dr/rhdr-mirror
+    source: quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-multicluster-operator-image-4-22
+  - mirrors:
+    - quay.io/openshift-virtualization-dr/rhdr-mirror
+    source: quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-ramendr-console-4-22
+  - mirrors:
+    - quay.io/openshift-virtualization-dr/rhdr-mirror
+    source: quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-ramen-operator-base-image-4-22
