@@ -33,7 +33,6 @@ clusterGroup:
     odf-multicluster-orchestrator:
       name: rhdr-multicluster-operator
       namespace: openshift-operators
-      channel: stable-4.22
       source: rhdr-ramen-catalog
 
     openshift-data-foundation:
