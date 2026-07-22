@@ -56,6 +56,10 @@ clusterGroup:
     openshift-data-foundation:
       name: odf-operator
       namespace: openshift-storage
+
+    ramen-dr:
+      name: ramen-dr
+      namespace: openshift-dr-ops
       source: rhdr-ramen-catalog
 
     openshift-oadp:
