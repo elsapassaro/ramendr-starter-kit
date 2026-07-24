@@ -58,8 +58,8 @@ clusterGroup:
       name: odf-operator
       namespace: openshift-storage
 
-    ramen-dr:
-      name: ramen-dr
+    rhdr-cluster-operator:
+      name: rhdr-cluster-operator
       namespace: openshift-operators
       source: ramen-catalog
 
