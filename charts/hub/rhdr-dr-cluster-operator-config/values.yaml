@@ -1,0 +1,25 @@
+# Target ConfigMap owned/read by the RHDR/Ramen hub operator.
+configMap:
+  name: ramen-hub-operator-config
+  namespace: openshift-operators
+
+# Admin namespace for DRPCs with protectedNamespaces (must match DRPC ns).
+ramenOpsNamespace: openshift-dr-ops
+
+# OADP installs Velero in openshift-adp (not upstream default "velero").
+veleroNamespaceName: openshift-adp
+
+# Fields written into ramen_manager_config.yaml → drClusterOperator.
+# These drive ACM ManifestWork ramen-dr-cluster Subscriptions on spokes.
+drClusterOperator:
+  catalogSourceName: ramen-catalog
+  catalogSourceNamespaceName: openshift-operators
+  channelName: stable-4.22
+  packageName: rhdr-cluster-operator
+
+# Job runs in OCM namespace (same pattern as regionaldr odf-ramen-trusted-ca).
+job:
+  namespace: open-cluster-management
+  image: quay.io/validatedpatterns/utility-container:latest
+  waitSeconds: 3600
+  pollInterval: 15

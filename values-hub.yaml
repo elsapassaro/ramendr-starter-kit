@@ -117,6 +117,26 @@ clusterGroup:
         jsonPointers:
           - /spec/plugins
 
+    # Durably patch ramen-hub-operator-config so discovered-app DRPCs in
+    # openshift-dr-ops are allowed (ramenOpsNamespace), OADP Velero ns is
+    # openshift-adp, and ManifestWork installs rhdr-cluster-operator from
+    # ramen-catalog. regionaldr-with-virt only patches S3/CA on that ConfigMap.
+    rhdr-dr-cluster-operator-config:
+      name: rhdr-dr-cluster-operator-config
+      namespace: open-cluster-management
+      argoProject: opp
+      path: charts/hub/rhdr-dr-cluster-operator-config
+      annotations:
+        argocd.argoproj.io/sync-wave: "8"
+      syncPolicy:
+        automated: {}
+        retry:
+          limit: 20
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+
     rdr:
       name: regional-dr
       namespace: regional-dr

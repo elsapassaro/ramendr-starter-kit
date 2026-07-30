@@ -9,6 +9,8 @@ clusterGroup:
   namespaces:
     openshift-cnv: {}
     openshift-storage: {}
+    # Admin ns for discovered-app VRGs (must match hub ramenOpsNamespace).
+    openshift-dr-ops: {}
     policies: {}
     gitops-vms: {}
     external-dns-operator: {}
@@ -58,9 +60,12 @@ clusterGroup:
       name: odf-operator
       namespace: openshift-storage
 
+    # Spoke RHDR cluster operator (GitOps path). Catalog name/namespace match
+    # Ramen hub operator defaults (ramen-catalog in openshift-operators).
     rhdr-cluster-operator:
       name: rhdr-cluster-operator
       namespace: openshift-operators
+      channel: stable-4.22
       source: ramen-catalog
 
     openshift-oadp:

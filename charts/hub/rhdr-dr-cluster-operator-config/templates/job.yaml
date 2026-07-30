@@ -1,0 +1,121 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rhdr-dr-cluster-operator-config
+  namespace: {{ .Values.job.namespace }}
+  labels:
+    app.kubernetes.io/name: rhdr-dr-cluster-operator-config
+  annotations:
+    # After hub RHDR/MCO operators exist; before/alongside regional-dr CA job (wave 9).
+    # Re-run on every Argo sync so operator/MCO merges cannot leave stale ramen-ops.
+    argocd.argoproj.io/sync-wave: "8"
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 5
+  activeDeadlineSeconds: {{ .Values.job.waitSeconds }}
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: rhdr-dr-cluster-operator-config
+      containers:
+        - name: patch-ramen-hub-config
+          image: {{ .Values.job.image | quote }}
+          env:
+            - name: CM_NAME
+              value: {{ .Values.configMap.name | quote }}
+            - name: CM_NAMESPACE
+              value: {{ .Values.configMap.namespace | quote }}
+            - name: RAMEN_OPS_NAMESPACE
+              value: {{ .Values.ramenOpsNamespace | quote }}
+            - name: VELERO_NAMESPACE_NAME
+              value: {{ .Values.veleroNamespaceName | quote }}
+            - name: CATALOG_SOURCE_NAME
+              value: {{ .Values.drClusterOperator.catalogSourceName | quote }}
+            - name: CATALOG_SOURCE_NAMESPACE
+              value: {{ .Values.drClusterOperator.catalogSourceNamespaceName | quote }}
+            - name: CHANNEL_NAME
+              value: {{ .Values.drClusterOperator.channelName | quote }}
+            - name: PACKAGE_NAME
+              value: {{ .Values.drClusterOperator.packageName | quote }}
+            - name: WAIT_SECONDS
+              value: {{ .Values.job.waitSeconds | quote }}
+            - name: POLL_INTERVAL
+              value: {{ .Values.job.pollInterval | quote }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              echo "Waiting for ConfigMap ${CM_NAMESPACE}/${CM_NAME}..."
+              deadline=$((SECONDS + WAIT_SECONDS))
+              until oc get configmap "${CM_NAME}" -n "${CM_NAMESPACE}" >/dev/null 2>&1; do
+                if (( SECONDS >= deadline )); then
+                  echo "ERROR: timed out waiting for ${CM_NAMESPACE}/${CM_NAME}" >&2
+                  exit 1
+                fi
+                sleep "${POLL_INTERVAL}"
+              done
+
+              work="$(mktemp -d)"
+              trap 'rm -rf "${work}"' EXIT
+              cfg="${work}/ramen_manager_config.yaml"
+
+              oc get configmap "${CM_NAME}" -n "${CM_NAMESPACE}" \
+                -o jsonpath='{.data.ramen_manager_config\.yaml}' >"${cfg}"
+              [[ -s "${cfg}" ]] || { echo "ERROR: empty ramen_manager_config.yaml" >&2; exit 1; }
+
+              if ! command -v yq >/dev/null 2>&1; then
+                echo "ERROR: yq is required" >&2
+                exit 1
+              fi
+
+              # Merge-patch only the fields we own. Preserve s3StoreProfiles,
+              # caCertificates, and any other operator/MCO-managed content.
+              export RAMEN_OPS_NAMESPACE VELERO_NAMESPACE_NAME \
+                CATALOG_SOURCE_NAME CATALOG_SOURCE_NAMESPACE CHANNEL_NAME PACKAGE_NAME
+              yq eval -i '
+                .ramenOpsNamespace = strenv(RAMEN_OPS_NAMESPACE) |
+                .kubeObjectProtection.veleroNamespaceName = strenv(VELERO_NAMESPACE_NAME) |
+                .drClusterOperator.catalogSourceName = strenv(CATALOG_SOURCE_NAME) |
+                .drClusterOperator.catalogSourceNamespaceName = strenv(CATALOG_SOURCE_NAMESPACE) |
+                .drClusterOperator.channelName = strenv(CHANNEL_NAME) |
+                .drClusterOperator.packageName = strenv(PACKAGE_NAME) |
+                .drClusterOperator.deploymentAutomationEnabled = true |
+                .drClusterOperator.s3SecretDistributionEnabled = (.drClusterOperator.s3SecretDistributionEnabled // true)
+              ' "${cfg}"
+
+              echo "Patched ramen hub config:"
+              yq eval '{
+                "ramenOpsNamespace": .ramenOpsNamespace,
+                "veleroNamespaceName": .kubeObjectProtection.veleroNamespaceName,
+                "drClusterOperator": .drClusterOperator
+              }' "${cfg}"
+
+              {
+                echo "apiVersion: v1"
+                echo "kind: ConfigMap"
+                echo "metadata:"
+                echo "  name: ${CM_NAME}"
+                echo "  namespace: ${CM_NAMESPACE}"
+                echo "data:"
+                echo "  ramen_manager_config.yaml: |"
+                sed 's/^/    /' "${cfg}"
+              } | oc apply -f -
+
+              live="${work}/live.yaml"
+              oc get configmap "${CM_NAME}" -n "${CM_NAMESPACE}" \
+                -o jsonpath='{.data.ramen_manager_config\.yaml}' >"${live}"
+              got_ops="$(yq eval '.ramenOpsNamespace' "${live}")"
+              got_velero="$(yq eval '.kubeObjectProtection.veleroNamespaceName' "${live}")"
+              got_pkg="$(yq eval '.drClusterOperator.packageName' "${live}")"
+              got_src="$(yq eval '.drClusterOperator.catalogSourceName' "${live}")"
+              got_srcns="$(yq eval '.drClusterOperator.catalogSourceNamespaceName' "${live}")"
+              got_ch="$(yq eval '.drClusterOperator.channelName' "${live}")"
+              [[ "${got_ops}" == "${RAMEN_OPS_NAMESPACE}" ]] || { echo "ERROR: ramenOpsNamespace=${got_ops}" >&2; exit 1; }
+              [[ "${got_velero}" == "${VELERO_NAMESPACE_NAME}" ]] || { echo "ERROR: veleroNamespaceName=${got_velero}" >&2; exit 1; }
+              [[ "${got_pkg}" == "${PACKAGE_NAME}" ]] || { echo "ERROR: packageName=${got_pkg}" >&2; exit 1; }
+              [[ "${got_src}" == "${CATALOG_SOURCE_NAME}" ]] || { echo "ERROR: catalogSourceName=${got_src}" >&2; exit 1; }
+              [[ "${got_srcns}" == "${CATALOG_SOURCE_NAMESPACE}" ]] || { echo "ERROR: catalogSourceNamespaceName=${got_srcns}" >&2; exit 1; }
+              [[ "${got_ch}" == "${CHANNEL_NAME}" ]] || { echo "ERROR: channelName=${got_ch}" >&2; exit 1; }
+              echo "Verified ramen hub config on ${CM_NAMESPACE}/${CM_NAME}"
