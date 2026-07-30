@@ -6,9 +6,6 @@ configMap:
 # Admin namespace for DRPCs with protectedNamespaces (must match DRPC ns).
 ramenOpsNamespace: openshift-dr-ops
 
-# OADP installs Velero in openshift-adp (not upstream default "velero").
-veleroNamespaceName: openshift-adp
-
 # Fields written into ramen_manager_config.yaml → drClusterOperator.
 # These drive ACM ManifestWork ramen-dr-cluster Subscriptions on spokes.
 drClusterOperator:

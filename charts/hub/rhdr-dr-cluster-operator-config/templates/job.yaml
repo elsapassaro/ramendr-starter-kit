@@ -28,8 +28,6 @@ spec:
               value: {{ .Values.configMap.namespace | quote }}
             - name: RAMEN_OPS_NAMESPACE
               value: {{ .Values.ramenOpsNamespace | quote }}
-            - name: VELERO_NAMESPACE_NAME
-              value: {{ .Values.veleroNamespaceName | quote }}
             - name: CATALOG_SOURCE_NAME
               value: {{ .Values.drClusterOperator.catalogSourceName | quote }}
             - name: CATALOG_SOURCE_NAMESPACE
@@ -72,11 +70,10 @@ spec:
 
               # Merge-patch only the fields we own. Preserve s3StoreProfiles,
               # caCertificates, and any other operator/MCO-managed content.
-              export RAMEN_OPS_NAMESPACE VELERO_NAMESPACE_NAME \
+              export RAMEN_OPS_NAMESPACE \
                 CATALOG_SOURCE_NAME CATALOG_SOURCE_NAMESPACE CHANNEL_NAME PACKAGE_NAME
               yq eval -i '
                 .ramenOpsNamespace = strenv(RAMEN_OPS_NAMESPACE) |
-                .kubeObjectProtection.veleroNamespaceName = strenv(VELERO_NAMESPACE_NAME) |
                 .drClusterOperator.catalogSourceName = strenv(CATALOG_SOURCE_NAME) |
                 .drClusterOperator.catalogSourceNamespaceName = strenv(CATALOG_SOURCE_NAMESPACE) |
                 .drClusterOperator.channelName = strenv(CHANNEL_NAME) |
@@ -88,7 +85,6 @@ spec:
               echo "Patched ramen hub config:"
               yq eval '{
                 "ramenOpsNamespace": .ramenOpsNamespace,
-                "veleroNamespaceName": .kubeObjectProtection.veleroNamespaceName,
                 "drClusterOperator": .drClusterOperator
               }' "${cfg}"
 
@@ -107,13 +103,11 @@ spec:
               oc get configmap "${CM_NAME}" -n "${CM_NAMESPACE}" \
                 -o jsonpath='{.data.ramen_manager_config\.yaml}' >"${live}"
               got_ops="$(yq eval '.ramenOpsNamespace' "${live}")"
-              got_velero="$(yq eval '.kubeObjectProtection.veleroNamespaceName' "${live}")"
               got_pkg="$(yq eval '.drClusterOperator.packageName' "${live}")"
               got_src="$(yq eval '.drClusterOperator.catalogSourceName' "${live}")"
               got_srcns="$(yq eval '.drClusterOperator.catalogSourceNamespaceName' "${live}")"
               got_ch="$(yq eval '.drClusterOperator.channelName' "${live}")"
               [[ "${got_ops}" == "${RAMEN_OPS_NAMESPACE}" ]] || { echo "ERROR: ramenOpsNamespace=${got_ops}" >&2; exit 1; }
-              [[ "${got_velero}" == "${VELERO_NAMESPACE_NAME}" ]] || { echo "ERROR: veleroNamespaceName=${got_velero}" >&2; exit 1; }
               [[ "${got_pkg}" == "${PACKAGE_NAME}" ]] || { echo "ERROR: packageName=${got_pkg}" >&2; exit 1; }
               [[ "${got_src}" == "${CATALOG_SOURCE_NAME}" ]] || { echo "ERROR: catalogSourceName=${got_src}" >&2; exit 1; }
               [[ "${got_srcns}" == "${CATALOG_SOURCE_NAMESPACE}" ]] || { echo "ERROR: catalogSourceNamespaceName=${got_srcns}" >&2; exit 1; }

@@ -118,9 +118,9 @@ clusterGroup:
           - /spec/plugins
 
     # Durably patch ramen-hub-operator-config so discovered-app DRPCs in
-    # openshift-dr-ops are allowed (ramenOpsNamespace), OADP Velero ns is
-    # openshift-adp, and ManifestWork installs rhdr-cluster-operator from
-    # ramen-catalog. regionaldr-with-virt only patches S3/CA on that ConfigMap.
+    # openshift-dr-ops are allowed (ramenOpsNamespace), and ManifestWork
+    # installs rhdr-cluster-operator from ramen-catalog. regionaldr-with-virt
+    # only patches S3/CA on that ConfigMap.
     rhdr-dr-cluster-operator-config:
       name: rhdr-dr-cluster-operator-config
       namespace: open-cluster-management

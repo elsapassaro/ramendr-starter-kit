@@ -2,8 +2,8 @@ apiVersion: v2
 name: rhdr-dr-cluster-operator-config
 description: >
   Durably patch openshift-operators/ramen-hub-operator-config so discovered-app
-  DRPCs in openshift-dr-ops are allowed (ramenOpsNamespace), OADP Velero ns is
-  correct, and ManifestWork installs rhdr-cluster-operator from ramen-catalog.
+  DRPCs in openshift-dr-ops are allowed (ramenOpsNamespace), and ManifestWork
+  installs rhdr-cluster-operator from ramen-catalog.
 type: application
 version: 0.1.0
 appVersion: "1.0.0"
