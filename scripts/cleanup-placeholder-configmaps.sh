@@ -5,6 +5,8 @@
 
 set -euo pipefail
 
+CA_BUNDLE_CONFIGMAP_NAME="${CA_BUNDLE_CONFIGMAP_NAME:-vp-pattern-proxy-ca-bundle}"
+
 echo "🧹 Cleaning up placeholder ConfigMaps from managed clusters..."
 
 # Get list of managed clusters
@@ -31,12 +33,11 @@ for cluster in $MANAGED_CLUSTERS; do
   fi
   
   if [[ -n "$KUBECONFIG_FILE" && -f "$KUBECONFIG_FILE" ]]; then
-    # Check if ConfigMap contains placeholder content
-    configmap_content=$(oc --kubeconfig="$KUBECONFIG_FILE" get configmap cluster-proxy-ca-bundle -n openshift-config -o jsonpath='{.data.ca-bundle\.crt}' 2>/dev/null || echo "")
-    
+    configmap_content=$(oc --kubeconfig="$KUBECONFIG_FILE" get configmap "$CA_BUNDLE_CONFIGMAP_NAME" -n openshift-config -o jsonpath='{.data.ca-bundle\.crt}' 2>/dev/null || echo "")
+
     if [[ "$configmap_content" == *"Placeholder for ODF SSL certificate bundle"* ]] || [[ "$configmap_content" == *"This will be populated by the certificate extraction job"* ]]; then
-      echo "  🗑️  Deleting placeholder ConfigMap from $cluster..."
-      oc --kubeconfig="$KUBECONFIG_FILE" delete configmap cluster-proxy-ca-bundle -n openshift-config --ignore-not-found=true
+      echo "  🗑️  Deleting placeholder ConfigMap ${CA_BUNDLE_CONFIGMAP_NAME} from $cluster..."
+      oc --kubeconfig="$KUBECONFIG_FILE" delete configmap "$CA_BUNDLE_CONFIGMAP_NAME" -n openshift-config --ignore-not-found=true
       echo "  ✅ Placeholder ConfigMap removed from $cluster"
     else
       echo "  ✅ $cluster: No placeholder ConfigMap found"

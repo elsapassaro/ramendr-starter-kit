@@ -5,6 +5,8 @@
 
 set -euo pipefail
 
+CA_BUNDLE_CONFIGMAP_NAME="${CA_BUNDLE_CONFIGMAP_NAME:-vp-pattern-proxy-ca-bundle}"
+
 echo "Manual CA Certificate Extraction"
 echo "================================"
 
@@ -59,10 +61,10 @@ create_combined_ca_bundle() {
 create_configmap() {
     local ca_bundle_file="$1"
     
-    echo "Creating cluster-proxy-ca-bundle ConfigMap..."
+    echo "Creating ${CA_BUNDLE_CONFIGMAP_NAME} ConfigMap..."
     
     if [[ -f "$ca_bundle_file" && -s "$ca_bundle_file" ]]; then
-        oc create configmap cluster-proxy-ca-bundle \
+        oc create configmap "$CA_BUNDLE_CONFIGMAP_NAME" \
             --from-file=ca-bundle.crt="$ca_bundle_file" \
             -n openshift-config \
             --dry-run=client -o yaml | oc apply -f -
@@ -71,7 +73,7 @@ create_configmap() {
         
         # Update proxy configuration
         echo "Updating cluster proxy configuration..."
-        oc patch proxy/cluster --type=merge --patch='{"spec":{"trustedCA":{"name":"cluster-proxy-ca-bundle"}}}' || {
+        oc patch proxy/cluster --type=merge --patch="{\"spec\":{\"trustedCA\":{\"name\":\"${CA_BUNDLE_CONFIGMAP_NAME}\"}}}" || {
             echo "Warning: Could not update proxy configuration"
         }
         
@@ -136,7 +138,7 @@ main() {
     echo "Manual CA extraction completed!"
     echo ""
     echo "To verify the configuration:"
-    echo "  oc get configmap cluster-proxy-ca-bundle -n openshift-config"
+    echo "  oc get configmap ${CA_BUNDLE_CONFIGMAP_NAME} -n openshift-config"
     echo "  oc get proxy cluster -o yaml"
 }
 

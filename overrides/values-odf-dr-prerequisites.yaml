@@ -1,4 +1,5 @@
 ---
+# CA in openshift-config/vp-pattern-proxy-ca-bundle (vp-manage-proxy-cluster-ca + trust-manager Bundle).
 odfDrPrerequisites:
-  caBundleName: cluster-proxy-ca-bundle
+  caBundleName: vp-pattern-proxy-ca-bundle
   caMaterialMode: trust-bundle

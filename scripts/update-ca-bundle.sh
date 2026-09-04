@@ -5,6 +5,9 @@
 
 set -euo pipefail
 
+# openshift-config ConfigMap used by cluster Proxy.spec.trustedCA (v1.3: vp-manage-proxy-cluster-ca).
+CA_BUNDLE_CONFIGMAP_NAME="${CA_BUNDLE_CONFIGMAP_NAME:-vp-pattern-proxy-ca-bundle}"
+
 echo "CA Bundle Update Script"
 echo "========================"
 
@@ -17,7 +20,7 @@ add_ca_to_bundle() {
         echo "Adding CA from: $ca_file"
         
         # Get existing bundle
-        oc get configmap cluster-proxy-ca-bundle -n openshift-config -o jsonpath="{.data['ca-bundle\.crt']}" > "$bundle_file" 2>/dev/null || touch "$bundle_file"
+        oc get configmap "$CA_BUNDLE_CONFIGMAP_NAME" -n openshift-config -o jsonpath="{.data['ca-bundle\.crt']}" > "$bundle_file" 2>/dev/null || touch "$bundle_file"
         
         # Add new CA
         cat "$ca_file" >> "$bundle_file"
@@ -28,7 +31,7 @@ add_ca_to_bundle() {
         mv "${bundle_file}.tmp" "$bundle_file"
         
         # Update ConfigMap
-        oc create configmap cluster-proxy-ca-bundle \
+        oc create configmap "$CA_BUNDLE_CONFIGMAP_NAME" \
             --from-file=ca-bundle.crt="$bundle_file" \
             -n openshift-config \
             --dry-run=client -o yaml | oc apply -f -
@@ -69,15 +72,15 @@ check_bundle_status() {
     echo "Current CA Bundle Status:"
     echo "========================"
     
-    if oc get configmap cluster-proxy-ca-bundle -n openshift-config >/dev/null 2>&1; then
+    if oc get configmap "$CA_BUNDLE_CONFIGMAP_NAME" -n openshift-config >/dev/null 2>&1; then
         local cert_count
-        cert_count=$(oc get configmap cluster-proxy-ca-bundle -n openshift-config -o jsonpath="{.data['ca-bundle\.crt']}" | grep -c 'BEGIN CERTIFICATE' 2>/dev/null || echo "0")
+        cert_count=$(oc get configmap "$CA_BUNDLE_CONFIGMAP_NAME" -n openshift-config -o jsonpath="{.data['ca-bundle\.crt']}" | grep -c 'BEGIN CERTIFICATE' 2>/dev/null || echo "0")
         echo "✓ ConfigMap exists with $cert_count certificates"
         
         # Check proxy configuration
         local proxy_ca
         proxy_ca=$(oc get proxy cluster -o jsonpath='{.spec.trustedCA.name}' 2>/dev/null || echo "")
-        if [[ "$proxy_ca" == "cluster-proxy-ca-bundle" ]]; then
+        if [[ "$proxy_ca" == "$CA_BUNDLE_CONFIGMAP_NAME" ]]; then
             echo "✓ Proxy is configured to use the CA bundle"
         else
             echo "⚠️  Proxy is not using the CA bundle (current: $proxy_ca)"
@@ -155,7 +158,7 @@ main() {
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
     echo "Usage: $0 {status|add|extract|update-all}"
     echo ""
-    echo "This script helps manage the cluster proxy CA bundle by:"
+    echo "This script helps manage the cluster proxy CA bundle ($CA_BUNDLE_CONFIGMAP_NAME) by:"
     echo "1. Checking current bundle status"
     echo "2. Adding CAs from files"
     echo "3. Extracting CAs from managed clusters"

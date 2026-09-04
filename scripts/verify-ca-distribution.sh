@@ -4,6 +4,9 @@
 
 set -euo pipefail
 
+CA_BUNDLE_CONFIGMAP_NAME="${CA_BUNDLE_CONFIGMAP_NAME:-vp-pattern-proxy-ca-bundle}"
+PATTERN_APP_NAMESPACE="${PATTERN_APP_NAMESPACE:-ramendr-starter-kit-odf}"
+
 echo "CA Bundle Distribution Verification"
 echo "==================================="
 
@@ -11,26 +14,32 @@ echo "==================================="
 check_hub_cluster() {
     echo "1. Checking Hub Cluster:"
     echo "========================"
-    
-    # Check if ConfigMap exists
-    if oc get configmap cluster-proxy-ca-bundle -n openshift-config >/dev/null 2>&1; then
+
+    if oc get configmap "$CA_BUNDLE_CONFIGMAP_NAME" -n openshift-config >/dev/null 2>&1; then
         local cert_count
-        cert_count=$(oc get configmap cluster-proxy-ca-bundle -n openshift-config -o jsonpath="{.data['ca-bundle\.crt']}" | grep -c 'BEGIN CERTIFICATE' 2>/dev/null || echo "0")
-        echo "✓ Hub cluster ConfigMap exists with $cert_count certificates"
+        cert_count=$(oc get configmap "$CA_BUNDLE_CONFIGMAP_NAME" -n openshift-config -o jsonpath="{.data['ca-bundle\.crt']}" | grep -c 'BEGIN CERTIFICATE' 2>/dev/null || echo "0")
+        echo "✓ Hub cluster ConfigMap ${CA_BUNDLE_CONFIGMAP_NAME} exists with $cert_count certificates"
     else
-        echo "✗ Hub cluster ConfigMap not found"
+        echo "✗ Hub cluster ConfigMap ${CA_BUNDLE_CONFIGMAP_NAME} not found"
         return 1
     fi
-    
-    # Check proxy configuration
+
+    if oc get bundle "$CA_BUNDLE_CONFIGMAP_NAME" -n openshift-config >/dev/null 2>&1; then
+        local bundle_status
+        bundle_status=$(oc get bundle "$CA_BUNDLE_CONFIGMAP_NAME" -n openshift-config -o jsonpath='{.status.conditions[?(@.type=="Synced")].status}' 2>/dev/null || echo "Unknown")
+        echo "✓ trust-manager Bundle ${CA_BUNDLE_CONFIGMAP_NAME} status: ${bundle_status:-Unknown}"
+    else
+        echo "⚠️  trust-manager Bundle ${CA_BUNDLE_CONFIGMAP_NAME} not found"
+    fi
+
     local proxy_ca
     proxy_ca=$(oc get proxy cluster -o jsonpath='{.spec.trustedCA.name}' 2>/dev/null || echo "")
-    if [[ "$proxy_ca" == "cluster-proxy-ca-bundle" ]]; then
-        echo "✓ Hub cluster proxy is configured to use the CA bundle"
+    if [[ "$proxy_ca" == "$CA_BUNDLE_CONFIGMAP_NAME" ]]; then
+        echo "✓ Hub cluster proxy is configured to use ${CA_BUNDLE_CONFIGMAP_NAME}"
     else
-        echo "⚠️  Hub cluster proxy is not using the CA bundle (current: $proxy_ca)"
+        echo "⚠️  Hub cluster proxy is not using ${CA_BUNDLE_CONFIGMAP_NAME} (current: ${proxy_ca:-<unset>})"
     fi
-    
+
     echo ""
 }
 
@@ -38,112 +47,91 @@ check_hub_cluster() {
 check_managed_clusters() {
     echo "2. Checking Managed Clusters:"
     echo "============================="
-    
-    # Get managed clusters
+
     local managed_clusters
     managed_clusters=$(oc get managedclusters -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo "")
-    
+
     if [[ -z "$managed_clusters" ]]; then
         echo "No managed clusters found"
         return 0
     fi
-    
+
     local total_clusters=0
     local configured_clusters=0
-    
+
     for cluster in $managed_clusters; do
         if [[ "$cluster" == "local-cluster" ]]; then
             continue
         fi
-        
+
         ((total_clusters++))
         echo "Checking cluster: $cluster"
-        
-        # Check if policy is applied to this cluster
-        local policy_status
-        policy_status=$(oc get policy policy-cluster-proxy-ca-bundle-distribution -n policies -o jsonpath='{.status.status}' 2>/dev/null || echo "Unknown")
-        
-        if [[ "$policy_status" == "Compliant" ]]; then
-            echo "  ✓ Policy is compliant for $cluster"
-            ((configured_clusters++))
-        elif [[ "$policy_status" == "NonCompliant" ]]; then
-            echo "  ⚠️  Policy is non-compliant for $cluster"
-        else
-            echo "  ❓ Policy status unknown for $cluster: $policy_status"
+
+        local kubeconfig_file="/tmp/${cluster}-verify-ca-kubeconfig.yaml"
+        if ! oc get secret -n "$cluster" -o name 2>/dev/null | grep -E "(admin-kubeconfig|kubeconfig)" | head -1 | xargs -I {} oc get {} -n "$cluster" -o jsonpath='{.data.kubeconfig}' 2>/dev/null | base64 -d > "$kubeconfig_file"; then
+            echo "  ❌ Could not get kubeconfig for $cluster"
+            continue
         fi
+
+        if oc --kubeconfig="$kubeconfig_file" get configmap "$CA_BUNDLE_CONFIGMAP_NAME" -n openshift-config >/dev/null 2>&1; then
+            local cert_count
+            cert_count=$(oc --kubeconfig="$kubeconfig_file" get configmap "$CA_BUNDLE_CONFIGMAP_NAME" -n openshift-config -o jsonpath="{.data['ca-bundle\.crt']}" | grep -c 'BEGIN CERTIFICATE' 2>/dev/null || echo "0")
+            echo "  ✓ ConfigMap ${CA_BUNDLE_CONFIGMAP_NAME} exists with $cert_count certificates"
+            ((configured_clusters++))
+        else
+            echo "  ✗ ConfigMap ${CA_BUNDLE_CONFIGMAP_NAME} not found"
+        fi
+
+        local proxy_ca
+        proxy_ca=$(oc --kubeconfig="$kubeconfig_file" get proxy cluster -o jsonpath='{.spec.trustedCA.name}' 2>/dev/null || echo "")
+        if [[ "$proxy_ca" == "$CA_BUNDLE_CONFIGMAP_NAME" ]]; then
+            echo "  ✓ Proxy uses ${CA_BUNDLE_CONFIGMAP_NAME}"
+        else
+            echo "  ⚠️  Proxy trustedCA is ${proxy_ca:-<unset>}"
+        fi
+
+        rm -f "$kubeconfig_file"
     done
-    
+
     echo ""
-    echo "Summary: $configured_clusters/$total_clusters managed clusters are properly configured"
+    echo "Summary: $configured_clusters/$total_clusters managed clusters have ${CA_BUNDLE_CONFIGMAP_NAME}"
     echo ""
 }
 
-# Function to check policy status
-check_policy_status() {
-    echo "3. Checking Policy Status:"
-    echo "=========================="
-    
-    # Check if distribution policy exists
-    if oc get policy policy-cluster-proxy-ca-bundle-distribution -n policies >/dev/null 2>&1; then
-        echo "✓ Distribution policy exists"
-        
-        # Get policy details
-        local policy_status
-        policy_status=$(oc get policy policy-cluster-proxy-ca-bundle-distribution -n policies -o jsonpath='{.status.status}' 2>/dev/null || echo "Unknown")
-        echo "  Policy status: $policy_status"
-        
-        # Get compliance details
-        local compliant_clusters
-        compliant_clusters=$(oc get policy policy-cluster-proxy-ca-bundle-distribution -n policies -o jsonpath='{.status.details[*].clusters[*].clusterName}' 2>/dev/null || echo "")
-        if [[ -n "$compliant_clusters" ]]; then
-            echo "  Compliant clusters: $compliant_clusters"
-        fi
+# Function to check vp-manage-proxy-cluster-ca GitOps app
+check_vp_manage_proxy_ca_app() {
+    echo "3. Checking vp-manage-proxy-cluster-ca Application:"
+    echo "==================================================="
+
+    if oc get application vp-manage-proxy-cluster-ca -n "$PATTERN_APP_NAMESPACE" >/dev/null 2>&1; then
+        local sync_status health_status
+        sync_status=$(oc get application vp-manage-proxy-cluster-ca -n "$PATTERN_APP_NAMESPACE" -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown")
+        health_status=$(oc get application vp-manage-proxy-cluster-ca -n "$PATTERN_APP_NAMESPACE" -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown")
+        echo "✓ Application vp-manage-proxy-cluster-ca: Sync=${sync_status:-Unknown}, Health=${health_status:-Unknown}"
     else
-        echo "✗ Distribution policy not found"
+        echo "✗ Application vp-manage-proxy-cluster-ca not found in namespace ${PATTERN_APP_NAMESPACE}"
     fi
-    
-    # Check placement rule
-    if oc get placementrule placement-cluster-proxy-ca-bundle -n policies >/dev/null 2>&1; then
-        echo "✓ Placement rule exists"
-    else
-        echo "✗ Placement rule not found"
-    fi
-    
-    # Check placement binding
-    if oc get placementbinding binding-cluster-proxy-ca-bundle -n policies >/dev/null 2>&1; then
-        echo "✓ Placement binding exists"
-    else
-        echo "✗ Placement binding not found"
-    fi
-    
+
     echo ""
 }
 
 # Function to check job status
 check_job_status() {
-    echo "4. Checking Job Status:"
-    echo "======================="
-    
-    # Check if extraction job exists
-    if oc get job extract-and-distribute-cas -n openshift-config >/dev/null 2>&1; then
-        local job_status
-        job_status=$(oc get job extract-and-distribute-cas -n openshift-config -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null || echo "Unknown")
-        
-        if [[ "$job_status" == "True" ]]; then
-            echo "✓ CA extraction job completed successfully"
-        elif [[ "$job_status" == "False" ]]; then
-            echo "⚠️  CA extraction job failed or is still running"
-            
-            # Show job logs
-            echo "Recent job logs:"
-            oc logs job/extract-and-distribute-cas -n openshift-config --tail=10 2>/dev/null || echo "Could not retrieve job logs"
+    echo "4. Checking vp-manage-proxy-cluster-ca Jobs:"
+    echo "============================================="
+
+    if oc get jobs -n vp-manage-proxy-cluster-ca >/dev/null 2>&1; then
+        local failed_jobs
+        failed_jobs=$(oc get jobs -n vp-manage-proxy-cluster-ca -o jsonpath='{range .items[?(@.status.failed)]}{.metadata.name}{" "}{end}' 2>/dev/null || echo "")
+        if [[ -n "$failed_jobs" ]]; then
+            echo "⚠️  Failed jobs in vp-manage-proxy-cluster-ca: $failed_jobs"
         else
-            echo "❓ CA extraction job status unknown: $job_status"
+            echo "✓ No failed jobs in vp-manage-proxy-cluster-ca"
         fi
     else
-        echo "✗ CA extraction job not found"
+        echo "⚠️  Namespace vp-manage-proxy-cluster-ca not found or no jobs yet"
     fi
-    
+
     echo ""
 }
 
@@ -152,31 +140,27 @@ provide_recommendations() {
     echo "5. Recommendations:"
     echo "==================="
     echo ""
-    
     echo "If issues are found:"
-    echo "1. Check job logs: oc logs job/extract-and-distribute-cas -n openshift-config"
-    echo "2. Check policy compliance: oc get policy policy-cluster-proxy-ca-bundle-distribution -n policies -o yaml"
-    echo "3. Manually trigger job: oc delete job extract-and-distribute-cas -n openshift-config"
-    echo "4. Check placement rule: oc get placementrule placement-cluster-proxy-ca-bundle -n policies -o yaml"
-    echo "5. Check placement binding: oc get placementbinding binding-cluster-proxy-ca-bundle -n policies -o yaml"
-    echo ""
-    echo "To force policy distribution:"
-    echo "  oc patch policy policy-cluster-proxy-ca-bundle-distribution -n policies --type=merge --patch='{\"spec\":{\"disabled\":true}}'"
-    echo "  oc patch policy policy-cluster-proxy-ca-bundle-distribution -n policies --type=merge --patch='{\"spec\":{\"disabled\":false}}'"
+    echo "1. Check hub bundle: oc get configmap ${CA_BUNDLE_CONFIGMAP_NAME} -n openshift-config -o yaml"
+    echo "2. Check trust-manager Bundle: oc get bundle ${CA_BUNDLE_CONFIGMAP_NAME} -n openshift-config -o yaml"
+    echo "3. Check proxy trustedCA: oc get proxy cluster -o jsonpath='{.spec.trustedCA.name}{\"\\n\"}'"
+    echo "4. Re-sync vp-manage-proxy-cluster-ca: oc patch application vp-manage-proxy-cluster-ca -n ${PATTERN_APP_NAMESPACE} --type=merge --patch='{\"operation\":{\"sync\":{\"syncStrategy\":{\"hook\":{}}}}}'"
+    echo "5. Merge additional CAs: ${0%/*}/update-ca-bundle.sh add /path/to/ca.crt"
     echo ""
 }
 
 # Main execution
 main() {
     echo "Starting CA bundle distribution verification..."
+    echo "Expected ConfigMap: ${CA_BUNDLE_CONFIGMAP_NAME}"
     echo ""
-    
+
     check_hub_cluster
     check_managed_clusters
-    check_policy_status
+    check_vp_manage_proxy_ca_app
     check_job_status
     provide_recommendations
-    
+
     echo "Verification completed!"
 }
 
@@ -184,17 +168,12 @@ main() {
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
     echo "Usage: $0 [options]"
     echo ""
-    echo "This script verifies that the CA bundle is properly distributed across all clusters by:"
-    echo "1. Checking hub cluster configuration"
-    echo "2. Checking managed cluster policy compliance"
-    echo "3. Checking policy status and placement"
-    echo "4. Checking job execution status"
-    echo "5. Providing recommendations for issues"
+    echo "Environment variables:"
+    echo "  CA_BUNDLE_CONFIGMAP_NAME - Proxy CA ConfigMap name (default: vp-pattern-proxy-ca-bundle)"
+    echo "  PATTERN_APP_NAMESPACE    - Argo app namespace (default: ramendr-starter-kit-odf)"
     echo ""
-    echo "Options:"
-    echo "  --help, -h    Show this help message"
+    echo "This script verifies CA distribution for the v1.3 vp-manage-proxy-cluster-ca path."
     exit 0
 fi
 
-# Run main function
 main
