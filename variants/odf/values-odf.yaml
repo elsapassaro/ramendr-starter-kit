@@ -390,8 +390,21 @@ clusterGroup:
           kind: Job
           jqPathExpressions:
             - .status
-        # Operator-owned status on Ramen / OCM DR resources after reconcile.
+        # Operator-owned status on Ramen CRs after reconcile.
         - group: ramendr.openshift.io
+          kind: DRPolicy
+          jqPathExpressions:
+            - .status
+        - group: ramendr.openshift.io
+          kind: DRCluster
+          jqPathExpressions:
+            - .status
+        - group: ramendr.openshift.io
+          kind: DRPlacementControl
+          jqPathExpressions:
+            - .status
+        - group: ramendr.openshift.io
+          kind: MaintenanceMode
           jqPathExpressions:
             - .status
         - group: cluster.open-cluster-management.io
