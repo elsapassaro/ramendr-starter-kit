@@ -1,0 +1,4 @@
+---
+odfDrPrerequisites:
+  caBundleName: cluster-proxy-ca-bundle
+  caMaterialMode: trust-bundle

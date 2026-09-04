@@ -18,6 +18,10 @@ clusterGroup:
     cert-manager-operator: {}
     cert-manager: {}
     vp-manage-proxy-cluster-ca: {}
+  indexImages:
+    rhdr:
+      name: rhdr-catalog
+      image: quay.io/openshift-virtualization-dr/rhdr-mirror:rhdr-fbc-4-22-2026-08-13-0c4fd31f37693cf4a69c865c9ce8a56badccdec71b891c5564b3efa167f3bde4
   subscriptions:
     acm:
       name: advanced-cluster-management
@@ -29,13 +33,17 @@ clusterGroup:
       namespace: external-secrets-operator
       channel: stable-v1
 
-    odf-multicluster-orchestrator:
-      name: odf-multicluster-orchestrator
+    # Preview RHDR multicluster operator (testing only, not production).
+    rhdr:
+      name: rhdr-multicluster-operator
       namespace: openshift-operators
+      source: rhdr-catalog
+      channel: stable-4.22
 
     openshift-data-foundation:
       name: odf-operator
       namespace: openshift-storage
+      channel: stable-4.22
 
     cert-manager:
       name: openshift-cert-manager-operator
@@ -72,6 +80,119 @@ clusterGroup:
   # about and sets, so this is also possible, for example:
   #   - '/overrides/values-{{ $.Values.global.hubClusterDomain }}.yaml'
   #   - '/overrides/values-{{ $.Values.global.localClusterDomain }}.yaml'
+  # Preview RHDR FBC images (Konflux, with rhdr-mirror fallback for GC'd digests).
+  extraObjects:
+    rhdr-fbc-idms:
+      apiVersion: config.openshift.io/v1
+      kind: ImageDigestMirrorSet
+      metadata:
+        name: rhdr-fbc-idms
+      spec:
+        imageDigestMirrors:
+          - source: registry.redhat.io/rhdr/rhdr-hub-operator-bundle
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-hub-operator-bundle-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
+          - source: registry.stage.redhat.io/rhdr/rhdr-hub-operator-bundle
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-hub-operator-bundle-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
+          - source: registry.redhat.io/rhdr/rhdr-cluster-operator-bundle
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-cluster-operator-bundle-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
+          - source: registry.stage.redhat.io/rhdr/rhdr-cluster-operator-bundle
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-cluster-operator-bundle-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
+          - source: registry.redhat.io/rhdr/rhdr-multicluster-operator-bundle
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-multicluster-operator-bundle-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
+          - source: registry.stage.redhat.io/rhdr/rhdr-multicluster-operator-bundle
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-multicluster-operator-bundle-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
+          - source: registry.redhat.io/rhdr/rhdr-csi-addons-operator-bundle
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-csi-addons-operator-bundle-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
+          - source: registry.stage.redhat.io/rhdr/rhdr-csi-addons-operator-bundle
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-csi-addons-operator-bundle-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
+          - source: registry.redhat.io/rhdr/rhdr-hub-rhel9-operator
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-ramen-operator-base-image-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
+          - source: registry.redhat.io/rhdr/rhdr-cluster-rhel9-operator
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-ramen-operator-base-image-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
+          - source: registry.stage.redhat.io/rhdr/rhdr-ramen-operator-base-image-rhel9
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-ramen-operator-base-image-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
+          - source: registry.redhat.io/rhdr/rhdr-multicluster-rhel9-operator
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-multicluster-operator-image-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
+          - source: registry.stage.redhat.io/rhdr/rhdr-multicluster-rhel9-operator
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-multicluster-operator-image-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
+          - source: registry.redhat.io/rhdr/rhdr-csi-addons-rhel9-operator
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-csi-addons-operator-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
+          - source: registry.stage.redhat.io/rhdr/rhdr-csi-addons-rhel9-operator
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-csi-addons-operator-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
+          - source: registry.redhat.io/rhdr/rhdr-csi-addons-sidecar-rhel9
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-csi-addons-sidecar-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
+          - source: registry.stage.redhat.io/rhdr/rhdr-csi-addons-sidecar-rhel9
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-csi-addons-sidecar-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
+          - source: registry.redhat.io/rhdr/rhdr-ramendr-console-rhel9
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-ramendr-console-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
+          - source: registry.stage.redhat.io/rhdr/rhdr-ramendr-console-rhel9
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-ramendr-console-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
+          - source: registry.redhat.io/rh-ocp-dr/rhdr/rhdr-hub-rhel9-operator
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-ramen-operator-base-image-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
+          - source: registry.redhat.io/rh-ocp-dr/rhdr/rhdr-cluster-rhel9-operator
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-ramen-operator-base-image-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
+          - source: registry.redhat.io/rh-ocp-dr/rhdr/rhdr-multicluster-rhel9-operator
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-multicluster-operator-image-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
+          - source: registry.redhat.io/rh-ocp-dr/rhdr/rhdr-csi-addons-rhel9-operator
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-csi-addons-operator-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
+          - source: registry.redhat.io/rh-ocp-dr/rhdr/rhdr-csi-addons-sidecar-rhel9
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-csi-addons-sidecar-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
+          - source: registry.redhat.io/rh-ocp-dr/rhdr/rhdr-ramendr-console-rhel9
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-ramendr-console-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
+          - source: registry.redhat.io/rh-ocp-dr/rhdr/rhdr-ramen-operator-base-image-rhel9
+            mirrors:
+              - quay.io/redhat-user-workloads/rhdr-tenant/rhdr/rhdr-ramen-operator-base-image-4-22
+              - quay.io/openshift-virtualization-dr/rhdr-mirror
   applications:
     acm:
       name: acm
@@ -114,6 +235,7 @@ clusterGroup:
           - PrunePropagationPolicy=foreground
           - RespectIgnoreDifferences=true
           - ServerSideApply=true
+          - CompareOptions=IgnoreExtraneous
       extraValueFiles:
         - '/overrides/values-cluster-names.yaml'
       ignoreDifferences:
@@ -121,6 +243,33 @@ clusterGroup:
         kind: Console
         jsonPointers:
           - /spec/plugins
+      # s3CaInjector / s3-ssl merge live Ramen ConfigMap content after apply.
+      - group: ""
+        kind: ConfigMap
+        name: ramen-hub-operator-config
+        namespace: openshift-operators
+        jqPathExpressions:
+          - .data["ramen_manager_config.yaml"]
+      - group: ""
+        kind: ConfigMap
+        name: ramen-dr-cluster-operator-config
+        namespace: openshift-dr-system
+        jqPathExpressions:
+          - .data["ramen_manager_config.yaml"]
+      # PostSync / CronJob ansible workloads (s3-ssl, s3-ca-injector, submariner).
+      - group: batch
+        kind: Job
+        jqPathExpressions:
+          - .status
+      - group: batch
+        kind: CronJob
+        jqPathExpressions:
+          - .status
+      # ACM policies reflect live cluster state after reconciliation.
+      - group: policy.open-cluster-management.io
+        kind: Policy
+        jqPathExpressions:
+          - .status
 
     vp-manage-proxy-cluster-ca:
       name: vp-manage-proxy-cluster-ca
@@ -186,9 +335,18 @@ clusterGroup:
           - RespectIgnoreDifferences=true
       extraValueFiles:
         - '/overrides/values-cluster-names.yaml'
+        - '/overrides/values-odf-dr-prerequisites.yaml'
       ignoreDifferences:
         - group: internal.open-cluster-management.io
           kind: ManagedClusterInfo
+        # regional-dr owns this Job when regionaldr-with-virt >= 0.1.1; ignore spec/status drift.
+        - group: batch
+          kind: Job
+          name: odf-dr-prerequisites-checker
+          namespace: cluster-ca-mgt
+          jqPathExpressions:
+            - .spec
+            - .status
 
     rdr:
       name: regional-dr
@@ -215,11 +373,35 @@ clusterGroup:
       extraValueFiles:
         - '/overrides/values-cluster-names.yaml'
         - '/overrides/values-egv-dr.yaml'
+        - '/overrides/values-odf-regional-dr.yaml'
+        - '/overrides/values-aws-cost-optimized.yaml'
       ignoreDifferences:
-        # Prevent ArgoCD from pruning dynamically created OCM resources
-        # These resources are created by OCM operators and should never be pruned
         - group: internal.open-cluster-management.io
           kind: ManagedClusterInfo
+        # regionaldr trusted-CA merge-patch on hub Ramen config.
+        - group: ""
+          kind: ConfigMap
+          name: ramen-hub-operator-config
+          namespace: openshift-operators
+          jqPathExpressions:
+            - .data["ramen_manager_config.yaml"]
+        # PostSync settlement Jobs (drpc-health-check, argocd-sync-disable, etc.).
+        - group: batch
+          kind: Job
+          jqPathExpressions:
+            - .status
+        # Operator-owned status on Ramen / OCM DR resources after reconcile.
+        - group: ramendr.openshift.io
+          jqPathExpressions:
+            - .status
+        - group: cluster.open-cluster-management.io
+          kind: PlacementDecision
+          jqPathExpressions:
+            - .status
+        - group: external-secrets.io
+          kind: ExternalSecret
+          jqPathExpressions:
+            - .status
 
     vault:
       name: vault

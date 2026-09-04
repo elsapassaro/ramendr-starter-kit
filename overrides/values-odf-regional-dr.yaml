@@ -1,0 +1,9 @@
+---
+# Align hub Ramen config for discovered-app DRPCs and RHDR spoke operator.
+# Requires regionaldr-with-virt >= 0.1.3 (ramen.updateRamenConfig + opsNamespace + CSV).
+# Mirrors upstream drpartner-s4/values-regional-dr.yaml RHDR settings.
+ramen:
+  updateRamenConfig: true
+  opsNamespace: openshift-dr-ops
+  drClusterOperator:
+    clusterServiceVersionName: rhdr-cluster-operator.v4.22.0-86.stable

@@ -4,25 +4,32 @@
 # (clusterOverrides, drpc) so chart regionalDR defaults are preserved.
 # Also works if merged first: -f overrides/values-cluster-names.yaml -f charts/hub/rdr/values.yaml
 
+costManagement:
+  ownerTag: storage-migration-qe
+  launchedByTag: automation-user
+  environmentTag: dev
+
 clusterOverrides:
   primary:
     name: ocp-primary
     version: 4.22.1
+    byoc: true
     install_config:
       metadata:
         name: ocp-primary
       platform:
         aws:
-          region: us-west-1
+          region: eu-central-1
   secondary:
     name: ocp-secondary
     version: 4.22.1
+    byoc: true
     install_config:
       metadata:
         name: ocp-secondary
       platform:
         aws:
-          region: us-east-1
+          region: eu-west-1
 
 # DRPC preferredCluster must be the ACM ManagedCluster name (ocp-primary), not the
 # install_config.metadata.name (mhj-ocp-422-p). Ramen uses this to target ManifestWork.
@@ -34,4 +41,4 @@ drpc:
 # ./pattern.sh make install-byoc.
 # That target will run a validation play to ensure the cluster
 # setup will work with ramen patterns
-byoc: false
+byoc: true

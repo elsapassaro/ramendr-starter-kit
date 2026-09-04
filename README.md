@@ -69,15 +69,6 @@ main:
   variant: drpartner-s4
 ```
 
-Control-test chart pins (until published on charts.validatedpatterns.io):
-
-| Chart | Target version | Fork branch |
-|-------|----------------|-------------|
-| opp-policy-chart | 0.0.5 | `vp-manage-proxy-cluster-ca` |
-| odf-dr-chart | 0.0.4 | `vp-manage-proxy-cluster-ca` |
-| regionaldr-with-virt | 0.1.0 | `conditionalize_resources` |
-| vp-manage-proxy-cluster-ca | 0.2.1 | `eso-externalsecret-argocd-sync` |
-
 `drpartner-s4` expectations after sync: s3-ssl/CA via **opp-policy** (Submariner disabled in `values-opp-policy.yaml`), hub **vp-s4-storage** (buckets via `s4Role.buckets`), preview RHDR (catalog + IDMS + `rhdr-multicluster-operator`; testing only), CNV, and OADP present;
 no odf-dr, MirrorPeer, or ODF StorageSystem; regionaldr with `ramen.infrastructureEnabled` creates DRClusters, a single `2m-novm` DRPolicy (no `2m-vm`), and upserts hub
 s3StoreProfiles only (`ensureBuckets: false`; no DRPC/VMs); opp-policy injects `caCertificates` only; `byoc: true`.

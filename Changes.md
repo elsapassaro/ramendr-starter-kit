@@ -6,6 +6,15 @@ v1.3 - September 2026
 * `drpartner-minimal` uses the same preview RHDR catalog/IDMS/subscription and
   defaults to `byoc: true`. The `odf` variant is unchanged.
 
+elsapassaro fork (branch `ocp-4.22-rhdr-ramen`, on upstream v1.3 @ 8800dd8)
+
+* Drop fork RHDR catalog artifacts (IDMS file, patch Job); use upstream
+  drpartner RHDR support when needed.
+* Port upstream preview RHDR onto **`odf`**: FBC catalog + IDMS, hub
+  `rhdr-multicluster-operator`, regional-dr CSV (`rhdr-cluster-operator.v4.22.0-86.stable`).
+* Keep QE overrides on `odf`: BYOC + EU regions + cost tags, mixed VMs,
+  odf-dr prerequisites, regional-dr opsNamespace, Argo ignoreDifferences.
+
 v1.3 - August 2026
 
 * BYOC validation (`ansible/playbooks/validate_byoc.yml`): remove worker metal /
