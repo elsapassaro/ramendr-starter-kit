@@ -83,6 +83,12 @@ clusterGroup:
   argoProjects:
     - resilient
 
+  # Platform overlays (None / BareMetal) switch ODF OSDs to LSO localblock.
+  # AWS has no values-AWS.yaml, so this is a no-op there. Keys are ODF-only
+  # so CNV, ESO, and other resilient apps can merge the file harmlessly.
+  sharedValueFiles:
+    - '/overrides/values-{{ $.Values.global.clusterPlatform }}.yaml'
+
   # Preview RHDR FBC images (Konflux, with rhdr-mirror fallback for GC'd digests).
   extraObjects:
     rhdr-fbc-idms:

@@ -1,0 +1,15 @@
+---
+# UPI / libvirt agent-based install. Do not use on AWS (clusterPlatform AWS
+# does not load this file). OSD PVCs use LSO StorageClass localblock.
+odf:
+  osd:
+    pvc:
+      storage: 100Gi
+      storageClassName: localblock
+objectStorage:
+  enable: true
+storageSystem:
+  deploy: false
+  inventory:
+    useSpecificNodes: false
+    nodeJobLabelSelector: "node-role.kubernetes.io/worker=,!submariner.io/gateway,!node-role.kubernetes.io/infra"

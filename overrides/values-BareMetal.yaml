@@ -1,0 +1,14 @@
+---
+# BareMetal / some UPI labs. OSD PVCs use LSO StorageClass localblock.
+odf:
+  osd:
+    pvc:
+      storage: 100Gi
+      storageClassName: localblock
+objectStorage:
+  enable: true
+storageSystem:
+  deploy: false
+  inventory:
+    useSpecificNodes: false
+    nodeJobLabelSelector: "node-role.kubernetes.io/worker=,!submariner.io/gateway,!node-role.kubernetes.io/infra"
