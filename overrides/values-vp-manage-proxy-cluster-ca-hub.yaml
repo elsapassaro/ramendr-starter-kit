@@ -11,3 +11,20 @@ trustManager:
     enabled: true
   byLabelBundle:
     enabled: true
+
+# Chart 0.2.x defaults these to registry.redhat.io/openshift4/ose-cli:latest,
+# which registry.redhat.io rejects. The in-cluster cli Imagestream tracks the
+# cluster’s release so export/sync Jobs can pull.
+eso:
+  export:
+    image:
+      repository: image-registry.openshift-image-registry.svc:5000/openshift/cli
+      tag: latest
+syncJob:
+  image:
+    repository: image-registry.openshift-image-registry.svc:5000/openshift/cli
+    tag: latest
+trustTest:
+  image:
+    repository: image-registry.openshift-image-registry.svc:5000/openshift/cli
+    tag: latest
