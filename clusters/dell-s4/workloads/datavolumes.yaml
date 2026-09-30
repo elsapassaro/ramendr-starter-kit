@@ -8,10 +8,10 @@ metadata:
     app: hammerdb
     drprotection: "true"
 spec:
-  source:
-    pvc:
-      namespace: openshift-virtualization-os-images
-      name: rhel9
+  sourceRef:
+    kind: DataSource
+    name: rhel9
+    namespace: openshift-virtualization-os-images
   storage:
     accessModes:
       - ReadWriteOnce
