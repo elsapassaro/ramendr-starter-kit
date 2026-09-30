@@ -23,7 +23,7 @@ spec:
     spec:
       project: default
       source:
-        repoURL: https://github.com/ugreener/ramendr-starter-kit.git
+        repoURL: https://github.com/elsapassaro/ramendr-starter-kit.git
         targetRevision: ocp-4.22-rhdr-dell
         path: clusters/dell-s4/workloads
       destination:
