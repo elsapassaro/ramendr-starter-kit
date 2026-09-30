@@ -2,11 +2,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: hammerdb-rhel9-ssh
+  name: hammerdb-rhel9
   namespace: gitops-vms
   labels:
     app: hammerdb
 spec:
+  type: NodePort
   selector:
     kubevirt.io/domain: hammerdb-rhel9
   ports:
