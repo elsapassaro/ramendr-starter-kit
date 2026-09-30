@@ -6,7 +6,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
   name: dell-vm-workload
-  namespace: openshift-gitops
+  namespace: openshift-dr-ops
 spec:
   generators:
     - clusterDecisionResource:
