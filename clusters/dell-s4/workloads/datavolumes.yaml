@@ -1,0 +1,40 @@
+---
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: hammerdb-rhel9-rootdisk
+  namespace: gitops-vms
+  labels:
+    app: hammerdb
+    drprotection: "true"
+spec:
+  source:
+    pvc:
+      namespace: openshift-virtualization-os-images
+      name: rhel9
+  storage:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 35Gi
+    storageClassName: powerstore-sc
+---
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: hammerdb-rhel9-datadisk
+  namespace: gitops-vms
+  labels:
+    app: hammerdb
+    drprotection: "true"
+spec:
+  source:
+    blank: {}
+  storage:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 20Gi
+    storageClassName: powerstore-sc

@@ -1,0 +1,16 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hammerdb-rhel9-ssh
+  namespace: gitops-vms
+  labels:
+    app: hammerdb
+spec:
+  selector:
+    kubevirt.io/domain: hammerdb-rhel9
+  ports:
+    - name: ssh
+      port: 22
+      protocol: TCP
+      targetPort: 22

@@ -1,0 +1,15 @@
+---
+apiVersion: cluster.open-cluster-management.io/v1beta1
+kind: Placement
+metadata:
+  name: dell-vm-placement
+  namespace: openshift-dr-ops
+  annotations:
+    cluster.open-cluster-management.io/experimental-scheduling-disable: "true"
+spec:
+  decisionStrategy:
+    groupStrategy:
+      clustersPerDecisionGroup: 0
+  prioritizerPolicy:
+    mode: Additive
+  spreadPolicy: {}

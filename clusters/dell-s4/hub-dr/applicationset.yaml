@@ -1,0 +1,37 @@
+---
+# ApplicationSet that deploys the Dell HammerDB VM workload to whichever
+# spoke the ACM Placement selects. When RamenDR moves the Placement
+# during failover, ArgoCD deploys on the target and removes from the source.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: dell-vm-workload
+  namespace: openshift-gitops
+spec:
+  generators:
+    - clusterDecisionResource:
+        configMapRef: acm-placement
+        labelSelector:
+          matchLabels:
+            cluster.open-cluster-management.io/placement: dell-vm-placement
+        requeueAfterSeconds: 180
+  template:
+    metadata:
+      name: dell-vm-workload-{{name}}
+      labels:
+        app: dell-vm-workload
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/ugreener/ramendr-starter-kit.git
+        targetRevision: ocp-4.22-rhdr-dell
+        path: clusters/dell-s4/workloads
+      destination:
+        server: "{{server}}"
+        namespace: gitops-vms
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

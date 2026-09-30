@@ -1,0 +1,27 @@
+---
+apiVersion: ramendr.openshift.io/v1alpha1
+kind: DRPlacementControl
+metadata:
+  name: dell-vm-drpc
+  namespace: openshift-dr-ops
+  annotations:
+    drplacementcontrol.ramendr.openshift.io/app-namespace: openshift-dr-ops
+  labels:
+    cluster.open-cluster-management.io/backup: ramen
+spec:
+  drPolicyRef:
+    apiVersion: ramendr.openshift.io/v1alpha1
+    kind: DRPolicy
+    name: dr-policy-15m
+  kubeObjectProtection:
+    captureInterval: 15m0s
+    kubeObjectSelector: {}
+  placementRef:
+    apiVersion: cluster.open-cluster-management.io/v1beta1
+    kind: Placement
+    name: dell-vm-placement
+    namespace: openshift-dr-ops
+  preferredCluster: spoke-0
+  protectedNamespaces:
+    - gitops-vms
+  pvcSelector: {}

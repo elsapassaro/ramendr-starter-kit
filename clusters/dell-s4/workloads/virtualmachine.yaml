@@ -1,0 +1,52 @@
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: hammerdb-rhel9
+  namespace: gitops-vms
+  labels:
+    app: hammerdb
+    drprotection: "true"
+spec:
+  runStrategy: Always
+  template:
+    metadata:
+      labels:
+        kubevirt.io/domain: hammerdb-rhel9
+        app: hammerdb
+    spec:
+      domain:
+        cpu:
+          cores: 2
+        memory:
+          guest: 8Gi
+        devices:
+          disks:
+            - name: rootdisk
+              disk:
+                bus: virtio
+            - name: datadisk
+              disk:
+                bus: virtio
+            - name: cloudinit
+              disk:
+                bus: virtio
+          interfaces:
+            - name: default
+              masquerade: {}
+        machine:
+          type: pc-q35-rhel9.4.0
+      networks:
+        - name: default
+          pod: {}
+      volumes:
+        - name: rootdisk
+          dataVolume:
+            name: hammerdb-rhel9-rootdisk
+        - name: datadisk
+          dataVolume:
+            name: hammerdb-rhel9-datadisk
+        - name: cloudinit
+          cloudInitNoCloud:
+            secretRef:
+              name: cloudinit-hammerdb
