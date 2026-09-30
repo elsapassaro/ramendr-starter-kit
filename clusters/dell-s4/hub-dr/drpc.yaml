@@ -3,7 +3,9 @@ apiVersion: ramendr.openshift.io/v1alpha1
 kind: DRPlacementControl
 metadata:
   name: dell-vm-drpc
-  namespace: gitops-vms
+  namespace: openshift-dr-ops
+  annotations:
+    drplacementcontrol.ramendr.openshift.io/app-namespace: openshift-dr-ops
   labels:
     cluster.open-cluster-management.io/backup: ramen
 spec:
@@ -18,8 +20,10 @@ spec:
     apiVersion: cluster.open-cluster-management.io/v1beta1
     kind: Placement
     name: dell-vm-placement
-    namespace: gitops-vms
+    namespace: openshift-dr-ops
   preferredCluster: spoke-0
+  protectedNamespaces:
+    - gitops-vms
   pvcSelector:
     matchLabels:
       drprotection: "true"
