@@ -1,0 +1,45 @@
+---
+# Regional-DR. The hub dashboard shows operator health, cluster health,
+# metrics, alerts, and application count.
+#
+# https://docs.redhat.com/en/documentation/red_hat_openshift_data_foundation/4.22/html/configuring_openshift_data_foundation_disaster_recovery_for_openshift_workloads/monitoring_disaster_recovery_health#enabling-dr-dashboard-on-hub-cluster_monitor-dr
+#
+# The bootstrap Job sets openshift.io/cluster-monitoring=true on
+# openshift-operators. The CronJob keeps that label set. That is the
+# "Enable monitoring for disaster recovery" step, and it is required for
+# Regional-DR. This chart does not create or replace the Namespace.
+# clusterMonitoringLabel.managedClusters.namespaces is the RHACM policy that
+# sets the same label on managed clusters. Leave it empty unless those
+# projects should be scraped by platform Prometheus.
+#
+# Prerequisites: OpenShift 4.17, the Data Foundation Multicluster Orchestrator
+# console plugin, and RHACM. The chart creates MultiClusterObservability and
+# the Thanos bucket on hub NooBaa. For an external bucket, set
+# metricObjectStorage.noobaa.enabled to false and
+# metricObjectStorage.externalSecret.enabled to true, add
+# thanos-object-storage to values-secret.yaml, and run make load-secrets.
+# See the chart README.
+#
+# Refresh the hub console. Select Fleet Management, open Data Services,
+# click Disaster recovery, then the Overview tab.
+
+clusterMonitoringLabel:
+  enabled: true
+
+acmObservability:
+  enabled: true
+  multiClusterObservability:
+    enabled: true
+  names:
+    - ceph_rbd_mirror_snapshot_sync_bytes
+    - ceph_rbd_mirror_snapshot_snapshots
+  # openshift-storage is scraped by user-workload monitoring unless that
+  # namespace has openshift.io/cluster-monitoring=true. The same names have
+  # to be on the user-workload allowlist or the Overview metrics cards stay empty.
+  userWorkload:
+    names:
+      - ceph_rbd_mirror_snapshot_sync_bytes
+      - ceph_rbd_mirror_snapshot_snapshots
+  matches:
+    - '__name__="csv_succeeded",exported_namespace="openshift-dr-system",name=~"odr-cluster-operator.*"'
+    - '__name__="kube_running_pod_ready",namespace=~"volsync-system|openshift-operators",pod=~"volsync.*"'

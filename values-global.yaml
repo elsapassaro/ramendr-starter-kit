@@ -3,6 +3,7 @@ global:
   pattern: ramendr-starter-kit
   vpNewFolderDir: true
 
+  singleArgoCD: true
   options:
     useCSV: false
     syncPolicy: Automatic

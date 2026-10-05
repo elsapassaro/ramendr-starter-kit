@@ -1,10 +1,14 @@
 # Change history for significant pattern releases
 
+v1.3 - October 2026
+
+* Add `openshift-observability` application to hub to enable built-in metrics reporting for the ODF variant.
+
 v1.3 - September 2026
 
 * Drop the ODF-MCO `drpartner-s4` variant and rename `rhdr-s4` to `drpartner-s4`.
-* `drpartner-minimal` uses the same preview RHDR catalog/IDMS/subscription and
-  defaults to `byoc: true`. The `odf` variant is unchanged.
+* `drpartner-minimal` uses the same preview RHDR catalog/IDMS/subscription.
+* Patterns are now defaulted to `byoc: true`.
 
 elsapassaro fork (branch `ocp-4.22-rhdr-ramen`, on upstream v1.3 @ 8800dd8)
 
