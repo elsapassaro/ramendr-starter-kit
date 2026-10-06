@@ -1,0 +1,16 @@
+---
+# Apply on both managed clusters (spoke-0 and spoke-1). The pull-model ArgoCD
+# application controller on each spoke needs these permissions to create the
+# VM workload resources (RHACM pull-model prerequisite).
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: gitops-admin
+subjects:
+  - kind: ServiceAccount
+    name: openshift-gitops-argocd-application-controller
+    namespace: openshift-gitops
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin

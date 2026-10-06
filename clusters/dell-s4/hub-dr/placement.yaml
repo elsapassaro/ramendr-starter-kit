@@ -1,15 +1,28 @@
 ---
+# DR Placement for the Dell HammerDB VM workload. Ramen owns its decisions
+# once the DRPC references it; spoke-0 is the initial/preferred cluster.
+# The tolerations keep the decision on a cluster while it is unreachable or
+# unavailable, so a failed spoke does not drop out before DR acts.
 apiVersion: cluster.open-cluster-management.io/v1beta1
 kind: Placement
 metadata:
   name: dell-vm-placement
-  namespace: openshift-dr-ops
+  namespace: openshift-gitops
   annotations:
     cluster.open-cluster-management.io/experimental-scheduling-disable: "true"
 spec:
-  decisionStrategy:
-    groupStrategy:
-      clustersPerDecisionGroup: 0
-  prioritizerPolicy:
-    mode: Additive
-  spreadPolicy: {}
+  clusterSets:
+    - default
+  predicates:
+    - requiredClusterSelector:
+        labelSelector:
+          matchExpressions:
+            - key: name
+              operator: In
+              values:
+                - spoke-0
+  tolerations:
+    - key: cluster.open-cluster-management.io/unreachable
+      operator: Exists
+    - key: cluster.open-cluster-management.io/unavailable
+      operator: Exists

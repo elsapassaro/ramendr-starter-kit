@@ -1,12 +1,22 @@
 ---
-# ApplicationSet that deploys the Dell HammerDB VM workload to whichever
-# spoke the ACM Placement selects. When RamenDR moves the Placement
-# during failover, ArgoCD deploys on the target and removes from the source.
+# Pull-model ApplicationSet that deploys the Dell HammerDB VM workload to
+# whichever spoke the DR Placement selects. When RamenDR moves the Placement
+# during failover or relocate, ArgoCD deploys on the target and removes the
+# workload resources from the source.
+#
+# The ApplicationSet must live in the ArgoCD namespace (openshift-gitops):
+# the clusterDecisionResource generator only reads PlacementDecisions from
+# the ArgoCD namespace, and Ramen requires the DRPC and Placement to share a
+# namespace, so all three objects are in openshift-gitops.
+#
+# The workload path must not contain a Namespace manifest. ArgoCD would own
+# and prune the namespace on the source cluster, deleting the VRG that lives
+# there before Ramen can demote it to Secondary.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
   name: dell-vm-workload
-  namespace: openshift-dr-ops
+  namespace: openshift-gitops
 spec:
   generators:
     - clusterDecisionResource:
@@ -20,6 +30,12 @@ spec:
       name: dell-vm-workload-{{name}}
       labels:
         app: dell-vm-workload
+        apps.open-cluster-management.io/pull-to-ocm-managed-cluster: "true"
+        velero.io/exclude-from-backup: "true"
+      annotations:
+        apps.open-cluster-management.io/ocm-managed-cluster: "{{name}}"
+        apps.open-cluster-management.io/ocm-managed-cluster-app-namespace: openshift-gitops
+        argocd.argoproj.io/skip-reconcile: "true"
     spec:
       project: default
       source:
@@ -35,3 +51,4 @@ spec:
           selfHeal: true
         syncOptions:
           - CreateNamespace=true
+          - PruneLast=true
