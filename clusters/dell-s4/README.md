@@ -21,7 +21,7 @@ clusters/dell-s4/
     drpc.yaml            Managed-application DRPC with dr-policy-15m (15-min RPO)
   workloads-win/       Windows VM manifests deployed by ArgoCD to the target spoke
     datavolumes.yaml   rootdisk (45Gi, cloned from the spoke-0 Windows golden PVC) + datadisk (10Gi, blank)
-    virtualmachine.yaml  hammerdb-win VM (2 vCPU, 8Gi RAM, UEFI, Hyper-V enlightenments)
+    virtualmachine.yaml  windows-hammerdb VM (2 vCPU, 8Gi RAM, UEFI, Hyper-V enlightenments)
     service.yaml       SSH service for HammerDB bootstrap + RDP NodePort 30390
   hub-dr-win/          Hub-side DR resources for the Windows workload
     placement.yaml       DR Placement dell-win-placement

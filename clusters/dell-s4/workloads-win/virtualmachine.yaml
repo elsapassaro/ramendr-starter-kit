@@ -2,11 +2,12 @@
 # Windows Server 2022 VM for SQL Server 2022 Express + HammerDB: UEFI boot
 # without Secure Boot, q35 and Hyper-V enlightenments. No cloud-init; the
 # image has pre-baked Administrator credentials, virtio drivers and
-# qemu-guest-agent.
+# qemu-guest-agent. The VM name starts with "windows" because the HammerDB
+# in-cluster installer selects the Windows install path by name prefix.
 apiVersion: kubevirt.io/v1
 kind: VirtualMachine
 metadata:
-  name: hammerdb-win
+  name: windows-hammerdb
   namespace: gitops-vms-win
   labels:
     app: hammerdb-win
@@ -16,7 +17,7 @@ spec:
     metadata:
       labels:
         app: hammerdb-win
-        kubevirt.io/domain: hammerdb-win
+        kubevirt.io/domain: windows-hammerdb
     spec:
       domain:
         cpu:
