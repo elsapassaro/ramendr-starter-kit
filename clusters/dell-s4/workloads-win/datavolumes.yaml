@@ -1,0 +1,45 @@
+---
+# Windows Server 2022 root disk cloned from the spoke-0 golden image PVC, and
+# a blank data disk for the SQL Server tpcc database. Both carry
+# drprotection=true so the DRPC selects them. The golden PVC exists only on
+# spoke-0; after failover the target receives the Ramen-restored PVCs and CDI
+# adopts them (DataVolumeClaimAdoption), so the clone source is not needed.
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: hammerdb-win-rootdisk
+  namespace: gitops-vms-win
+  labels:
+    app: hammerdb-win
+    drprotection: "true"
+spec:
+  source:
+    pvc:
+      namespace: windows-golden-images
+      name: windows-server-2022-standard
+  storage:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 45Gi
+    storageClassName: powerstore-sc
+---
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: hammerdb-win-datadisk
+  namespace: gitops-vms-win
+  labels:
+    app: hammerdb-win
+    drprotection: "true"
+spec:
+  source:
+    blank: {}
+  storage:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 10Gi
+    storageClassName: powerstore-sc

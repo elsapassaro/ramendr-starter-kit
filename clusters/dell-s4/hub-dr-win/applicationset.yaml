@@ -1,0 +1,54 @@
+---
+# Pull-model ApplicationSet that deploys the Dell Windows SQL Server
+# HammerDB VM workload to whichever spoke the DR Placement selects. When RamenDR moves the Placement
+# during failover or relocate, ArgoCD deploys on the target and removes the
+# workload resources from the source.
+#
+# The ApplicationSet must live in the ArgoCD namespace (openshift-gitops):
+# the clusterDecisionResource generator only reads PlacementDecisions from
+# the ArgoCD namespace, and Ramen requires the DRPC and Placement to share a
+# namespace, so all three objects are in openshift-gitops.
+#
+# The workload path must not contain a Namespace manifest. ArgoCD would own
+# and prune the namespace on the source cluster, deleting the VRG that lives
+# there before Ramen can demote it to Secondary.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: dell-win-workload
+  namespace: openshift-gitops
+spec:
+  generators:
+    - clusterDecisionResource:
+        configMapRef: acm-placement
+        labelSelector:
+          matchLabels:
+            cluster.open-cluster-management.io/placement: dell-win-placement
+        requeueAfterSeconds: 180
+  template:
+    metadata:
+      name: dell-win-workload-{{name}}
+      labels:
+        app: dell-win-workload
+        apps.open-cluster-management.io/pull-to-ocm-managed-cluster: "true"
+        velero.io/exclude-from-backup: "true"
+      annotations:
+        apps.open-cluster-management.io/ocm-managed-cluster: "{{name}}"
+        apps.open-cluster-management.io/ocm-managed-cluster-app-namespace: openshift-gitops
+        argocd.argoproj.io/skip-reconcile: "true"
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/elsapassaro/ramendr-starter-kit.git
+        targetRevision: ocp-4.22-rhdr-dell
+        path: clusters/dell-s4/workloads-win
+      destination:
+        server: "{{server}}"
+        namespace: gitops-vms-win
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - PruneLast=true

@@ -1,0 +1,39 @@
+---
+# NodePort SSH service; its name must match the VMI so the HammerDB
+# in-cluster installer can discover the VM.
+apiVersion: v1
+kind: Service
+metadata:
+  name: hammerdb-win
+  namespace: gitops-vms-win
+  labels:
+    app: hammerdb-win
+spec:
+  type: NodePort
+  selector:
+    kubevirt.io/domain: hammerdb-win
+  ports:
+    - name: ssh
+      port: 22
+      protocol: TCP
+      targetPort: 22
+---
+# NodePort RDP service. 30389 is used by the discovered hammerdb-win
+# workload, so the managed VM uses 30390.
+apiVersion: v1
+kind: Service
+metadata:
+  name: hammerdb-win-rdp
+  namespace: gitops-vms-win
+  labels:
+    app: hammerdb-win
+spec:
+  type: NodePort
+  selector:
+    kubevirt.io/domain: hammerdb-win
+  ports:
+    - name: rdp
+      port: 3389
+      protocol: TCP
+      targetPort: 3389
+      nodePort: 30390

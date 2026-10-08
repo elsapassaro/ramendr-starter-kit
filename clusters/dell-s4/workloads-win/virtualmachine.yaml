@@ -1,0 +1,80 @@
+---
+# Windows Server 2022 VM for SQL Server 2022 Express + HammerDB: UEFI boot
+# without Secure Boot, q35 and Hyper-V enlightenments. No cloud-init; the
+# image has pre-baked Administrator credentials, virtio drivers and
+# qemu-guest-agent.
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: hammerdb-win
+  namespace: gitops-vms-win
+  labels:
+    app: hammerdb-win
+spec:
+  runStrategy: Always
+  template:
+    metadata:
+      labels:
+        app: hammerdb-win
+        kubevirt.io/domain: hammerdb-win
+    spec:
+      domain:
+        cpu:
+          cores: 2
+          sockets: 1
+          threads: 1
+        memory:
+          guest: 8Gi
+        machine:
+          type: q35
+        firmware:
+          bootloader:
+            efi:
+              secureBoot: false
+        clock:
+          utc: {}
+          timer:
+            hpet:
+              present: false
+            pit:
+              tickPolicy: delay
+            rtc:
+              tickPolicy: catchup
+            hyperv: {}
+        features:
+          acpi: {}
+          apic: {}
+          hyperv:
+            relaxed: {}
+            vapic: {}
+            spinlocks:
+              spinlocks: 8191
+            vpindex: {}
+            runtime: {}
+            synic: {}
+            synictimer:
+              direct: {}
+            frequencies: {}
+            reenlightenment: {}
+            reset: {}
+        devices:
+          disks:
+            - name: rootdisk
+              disk:
+                bus: virtio
+            - name: datadisk
+              disk:
+                bus: virtio
+          interfaces:
+            - name: default
+              masquerade: {}
+      networks:
+        - name: default
+          pod: {}
+      volumes:
+        - name: rootdisk
+          dataVolume:
+            name: hammerdb-win-rootdisk
+        - name: datadisk
+          dataVolume:
+            name: hammerdb-win-datadisk

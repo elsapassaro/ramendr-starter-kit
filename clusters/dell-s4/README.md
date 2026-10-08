@@ -1,6 +1,9 @@
-# Dell PowerStore GitOps-managed VM failover (VIRTDR-292)
+# Dell PowerStore GitOps-managed VM failover (VIRTDR-292, VIRTDR-294)
 
-GitOps-managed VM workload for DR failover testing on Dell PowerStore VSAs.
+GitOps-managed VM workloads for DR failover testing on Dell PowerStore VSAs:
+a RHEL 9 + PostgreSQL VM (VIRTDR-292) and a Windows Server 2022 + SQL Server
+2022 Express VM (VIRTDR-294), each with its own ApplicationSet, DR Placement
+and DRPC.
 
 ## Structure
 
@@ -16,6 +19,14 @@ clusters/dell-s4/
     placement.yaml       DR Placement (scheduling disabled, controlled by DRPC)
     applicationset.yaml  Pull-model ApplicationSet using the DR Placement decisions
     drpc.yaml            Managed-application DRPC with dr-policy-15m (15-min RPO)
+  workloads-win/       Windows VM manifests deployed by ArgoCD to the target spoke
+    datavolumes.yaml   rootdisk (45Gi, cloned from the spoke-0 Windows golden PVC) + datadisk (10Gi, blank)
+    virtualmachine.yaml  hammerdb-win VM (2 vCPU, 8Gi RAM, UEFI, Hyper-V enlightenments)
+    service.yaml       SSH service for HammerDB bootstrap + RDP NodePort 30390
+  hub-dr-win/          Hub-side DR resources for the Windows workload
+    placement.yaml       DR Placement dell-win-placement
+    applicationset.yaml  Pull-model ApplicationSet dell-win-workload (namespace gitops-vms-win)
+    drpc.yaml            Managed-application DRPC dell-win-drpc with dr-policy-15m
   spoke-rbac/          Applied to both managed clusters
     clusterrolebinding.yaml  cluster-admin for the spoke ArgoCD application controller
 ```
@@ -40,7 +51,13 @@ DRPC stuck in `Cleaning Up`.
 5. ArgoCD deploys the VM workload to the spoke selected by the Placement (spoke-0)
 6. Run `bootstrap-hammerdb.sh` from RedHatQE/ramendr-storage-ui-tests to install
    PostgreSQL + HammerDB inside the VM
-7. Test failover via the hub Data Services DR console UI
+7. Windows workload: apply `hub-dr-win/` to the hub. No Secret is needed
+   (the image has pre-baked Administrator credentials). Run
+   `install-hammerdb-incluster.sh` with `VM_NAMESPACE=gitops-vms-win`,
+   `WINDOWS_SSH_PASSWORD` and the MSSQL credentials to install SQL Server
+   Express + HammerDB. The golden PVC `windows-golden-images/windows-server-2022-standard`
+   must exist on the initial spoke (spoke-0).
+8. Test failover via the hub Data Services DR console UI
 
 ## Prerequisites
 
