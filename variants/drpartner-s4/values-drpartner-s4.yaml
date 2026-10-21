@@ -21,7 +21,7 @@ clusterGroup:
   indexImages:
     rhdr:
       name: rhdr-catalog
-      image: quay.io/openshift-virtualization-dr/rhdr-mirror@sha256:2a8f949876d77211a4ba3faaea2c60be76a15120c0341ba3f3efe0bca9e3dae1
+      image: quay.io/openshift-virtualization-dr/rhdr-mirror:latest
   subscriptions:
     acm:
       name: advanced-cluster-management
