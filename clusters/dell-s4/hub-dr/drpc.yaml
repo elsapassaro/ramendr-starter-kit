@@ -27,6 +27,11 @@ spec:
     name: dell-vm-placement
     namespace: openshift-gitops
   preferredCluster: spoke-0
+  # pvcSelector is immutable on the DRPC CRD, so it is written in the same
+  # matchExpressions form the console produces. A different form is rejected.
   pvcSelector:
-    matchLabels:
-      drprotection: "true"
+    matchExpressions:
+      - key: drprotection
+        operator: In
+        values:
+          - "true"
