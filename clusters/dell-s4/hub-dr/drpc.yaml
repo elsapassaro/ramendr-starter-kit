@@ -2,12 +2,17 @@
 # Managed-application DRPC. It must be in the same namespace as its
 # Placement (openshift-gitops) and must not set protectedNamespaces, which
 # Ramen only allows for discovered applications in the admin namespace.
+# The name must be <placement>-drpc because the console enrollment path
+# (Applications > Manage disaster recovery) always creates that name, so this
+# manifest and a console enrollment produce one object instead of two. Apply
+# it only when no DRPC references the Placement yet: after a console
+# enrollment the console owns the DRPC it created.
 # Both VM disks carry drprotection=true; CDI overwrites the app label on
 # cloned PVCs, so do not select on app.
 apiVersion: ramendr.openshift.io/v1alpha1
 kind: DRPlacementControl
 metadata:
-  name: dell-vm-drpc
+  name: dell-vm-placement-drpc
   namespace: openshift-gitops
   labels:
     cluster.open-cluster-management.io/backup: ramen
