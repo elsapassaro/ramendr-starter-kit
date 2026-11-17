@@ -17,7 +17,7 @@ main:
   # variants/ folder is present (global.vpNewFolderDir=true).
   # drpartner-s4 = partner CSI + hub S4 + preview RHDR (testing only).
   # odf remains the documented default in pattern-metadata.yaml.
-  variant: odf
+  variant: drpartner-s4
   multiSourceConfig:
     enabled: true
     # Need >= 0.9.57 for variants/ folder path helpers (vpNewFolderDir).
