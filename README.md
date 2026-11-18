@@ -26,6 +26,13 @@ This pattern uses the clustergroup/ACM `variants/` folder layout. Presence of
 Spoke BOMs nest under the install variant as
 `variants/<variant>/values-<managedClusterGroup.name>.yaml`.
 
+The `odf` variant creates `odf-catalog` in `openshift-marketplace` on the hub
+and spokes using `quay.io/rhceph-dev/ocs-registry:4.22.8-1.konflux`, together
+with the image mirrors shipped in that catalog. ODF and the hub's
+`odf-multicluster-orchestrator` use its `stable-4.22` channel. Ramen comes
+from the same ODF catalog, with the spoke operator configured as
+`odr-cluster-operator.v4.22.8-rhodf` in `overrides/values-odf-regional-dr.yaml`.
+
 | Variant | Select | Purpose |
 |---------|--------|---------|
 | `odf` (default) | `main.variant: odf` | Baseline: full ODF Regional DR + Virtualization; `byoc: true` |

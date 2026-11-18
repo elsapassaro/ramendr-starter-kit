@@ -1,9 +1,14 @@
 ---
-# Align hub Ramen config for discovered-app DRPCs and RHDR spoke operator.
+# Align hub Ramen config for discovered-app DRPCs and the ODF-bundled spoke operator.
 # Requires regionaldr-with-virt >= 0.1.3 (ramen.updateRamenConfig + opsNamespace + CSV).
-# Mirrors upstream drpartner-s4/values-regional-dr.yaml RHDR settings.
+# Override the chart's RHDR defaults with the package and CSV from the ODF catalog.
 ramen:
   updateRamenConfig: true
   opsNamespace: openshift-dr-ops
   drClusterOperator:
-    clusterServiceVersionName: rhdr-cluster-operator.v4.22.0-86.stable
+    catalogSourceName: odf-catalog
+    catalogSourceNamespaceName: openshift-marketplace
+    packageName: odr-cluster-operator
+    channelName: stable-4.22
+    namespaceName: openshift-dr-system
+    clusterServiceVersionName: odr-cluster-operator.v4.22.8-rhodf
