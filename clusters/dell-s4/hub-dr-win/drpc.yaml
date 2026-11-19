@@ -2,8 +2,9 @@
 # Managed-application DRPC. It must be in the same namespace as its
 # Placement (openshift-gitops) and must not set protectedNamespaces, which
 # Ramen only allows for discovered applications in the admin namespace.
-# Both VM disks carry drprotection=true; CDI overwrites the app label on
-# cloned PVCs, so do not select on app.
+# Both VM disks carry drprotection=true in the base manifests. After the
+# group-backed migration the VM uses cloned PVCs on powerstore-sc-group and
+# this selector tracks their dedicated label instead.
 apiVersion: ramendr.openshift.io/v1alpha1
 kind: DRPlacementControl
 metadata:
@@ -15,7 +16,7 @@ spec:
   drPolicyRef:
     apiVersion: ramendr.openshift.io/v1alpha1
     kind: DRPolicy
-    name: dr-policy-15m
+    name: dr-policy-5m
   placementRef:
     apiVersion: cluster.open-cluster-management.io/v1beta1
     kind: Placement
@@ -23,5 +24,8 @@ spec:
     namespace: openshift-gitops
   preferredCluster: spoke-0
   pvcSelector:
-    matchLabels:
-      drprotection: "true"
+    matchExpressions:
+      - key: appname
+        operator: In
+        values:
+          - hammerdb-win-mgd-grp

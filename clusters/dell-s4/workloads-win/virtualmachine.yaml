@@ -74,8 +74,8 @@ spec:
           pod: {}
       volumes:
         - name: rootdisk
-          dataVolume:
-            name: hammerdb-win-rootdisk
+          persistentVolumeClaim:
+            claimName: hammerdb-win-rootdisk-mgd-grp
         - name: datadisk
-          dataVolume:
-            name: hammerdb-win-datadisk
+          persistentVolumeClaim:
+            claimName: hammerdb-win-datadisk-mgd-grp
