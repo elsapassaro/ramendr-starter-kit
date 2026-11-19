@@ -41,11 +41,11 @@ spec:
           pod: {}
       volumes:
         - name: rootdisk
-          dataVolume:
-            name: hammerdb-rhel9-rootdisk
+          persistentVolumeClaim:
+            claimName: hammerdb-rhel9-rootdisk-mgd-grp
         - name: datadisk
-          dataVolume:
-            name: hammerdb-rhel9-datadisk
+          persistentVolumeClaim:
+            claimName: hammerdb-rhel9-datadisk-mgd-grp
         - name: cloudinit
           cloudInitNoCloud:
             secretRef:

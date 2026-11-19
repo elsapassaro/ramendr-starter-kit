@@ -7,8 +7,9 @@
 # manifest and a console enrollment produce one object instead of two. Apply
 # it only when no DRPC references the Placement yet: after a console
 # enrollment the console owns the DRPC it created.
-# Both VM disks carry drprotection=true; CDI overwrites the app label on
-# cloned PVCs, so do not select on app.
+# Both VM disks carry drprotection=true in the base manifests. After the
+# group-backed migration the VM uses cloned PVCs on powerstore-sc-group and
+# this selector tracks their dedicated label instead.
 apiVersion: ramendr.openshift.io/v1alpha1
 kind: DRPlacementControl
 metadata:
@@ -20,7 +21,7 @@ spec:
   drPolicyRef:
     apiVersion: ramendr.openshift.io/v1alpha1
     kind: DRPolicy
-    name: dr-policy-15m
+    name: dr-policy-5m
   placementRef:
     apiVersion: cluster.open-cluster-management.io/v1beta1
     kind: Placement
@@ -31,7 +32,7 @@ spec:
   # matchExpressions form the console produces. A different form is rejected.
   pvcSelector:
     matchExpressions:
-      - key: drprotection
+      - key: appname
         operator: In
         values:
-          - "true"
+          - hammerdb-rhel9-mgd-grp
