@@ -23,7 +23,7 @@ spec:
   drPolicyRef:
     apiVersion: ramendr.openshift.io/v1alpha1
     kind: DRPolicy
-    name: dr-policy-5m
+    name: dr-policy-15m
   placementRef:
     apiVersion: cluster.open-cluster-management.io/v1beta1
     kind: Placement
