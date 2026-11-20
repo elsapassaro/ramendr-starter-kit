@@ -4,6 +4,7 @@ v1.3 - October 2026
 
 * Add `openshift-observability` application to hub to enable built-in metrics reporting for the ODF variant.
 * Update catalog index tag to `latest` following improvements in the rhdr build process.
+* Unpin `vp-manage-proxy-cluster-ca-sync` declaration in `drpartner-s4` variant to allow tracking 0.2 releases.
 
 v1.3 - September 2026
 
