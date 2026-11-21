@@ -1,0 +1,45 @@
+---
+# Group-replication disks for the managed RHEL workload. Defining them in the
+# application lets Argo CD prune them on the source during a failover, so the
+# source VRG can become Secondary and the DRPC completes. On the target, Ramen
+# restores the PVCs and CDI adopts them (DataVolumeClaimAdoption), so the clone
+# source is not used there.
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: hammerdb-rhel9-rootdisk-mgd-grp
+  namespace: gitops-vms
+  labels:
+    app: hammerdb
+    appname: hammerdb-rhel9-mgd-grp
+spec:
+  sourceRef:
+    kind: DataSource
+    name: rhel9
+    namespace: openshift-virtualization-os-images
+  storage:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 35Gi
+    storageClassName: powerstore-sc-group
+---
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: hammerdb-rhel9-datadisk-mgd-grp
+  namespace: gitops-vms
+  labels:
+    app: hammerdb
+    appname: hammerdb-rhel9-mgd-grp
+spec:
+  source:
+    blank: {}
+  storage:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 20Gi
+    storageClassName: powerstore-sc-group
