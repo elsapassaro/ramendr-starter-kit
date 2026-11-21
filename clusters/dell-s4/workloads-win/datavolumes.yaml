@@ -1,0 +1,46 @@
+---
+# Group-replication disks for the managed Windows workload. Defining them in
+# the application lets Argo CD prune them on the source during a failover, so
+# the source VRG can become Secondary and the DRPC completes. On the target,
+# Ramen restores the PVCs and CDI adopts them (DataVolumeClaimAdoption), so the
+# golden-image clone source is not used there. The golden PVC exists only on
+# spoke-0.
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: hammerdb-win-rootdisk-mgd-grp
+  namespace: gitops-vms-win
+  labels:
+    app: hammerdb-win
+    appname: hammerdb-win-mgd-grp
+spec:
+  source:
+    pvc:
+      namespace: windows-golden-images
+      name: windows-server-2022-standard
+  storage:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 45Gi
+    storageClassName: powerstore-sc-group
+---
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: hammerdb-win-datadisk-mgd-grp
+  namespace: gitops-vms-win
+  labels:
+    app: hammerdb-win
+    appname: hammerdb-win-mgd-grp
+spec:
+  source:
+    blank: {}
+  storage:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 10Gi
+    storageClassName: powerstore-sc-group
