@@ -1,0 +1,19 @@
+name: check-managed-disks
+
+on:
+  push:
+    branches:
+      - ocp-4.22-rhdr-dell
+  pull_request:
+    branches:
+      - ocp-4.22-rhdr-dell
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install YAML parser
+        run: python3 -m pip install pyyaml
+      - name: Every managed VM claim must have a DataVolume in Git
+        run: python3 scripts/check-managed-disks.py
