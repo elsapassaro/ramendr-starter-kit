@@ -45,7 +45,7 @@ v1.3 - August 2026
   `odf` relies on MirrorPeer. opp-policy injects `caCertificates` only.
 * Default `main.variant: odf` for regression control vs previous full ODF install.
 * `drpartner-s4` uses opp-policy for Submariner/s3-ssl/CA (no odf-dr app); regionaldr
-  with `ramen.infrastructureEnabled` for DRClusters, `2m-novm` only (no `2m-vm`), and hub
+  with `ramen.infrastructureEnabled` for DRClusters, `5m-novm` only (no `5m-vm`), and hub
   s3StoreProfiles upsert (`ensureBuckets: false`); **vp-s4-storage** owns bucket create
   without DRPC/VMs.
 * Adopt clustergroup/ACM `variants/` folder layout (`global.vpNewFolderDir`):

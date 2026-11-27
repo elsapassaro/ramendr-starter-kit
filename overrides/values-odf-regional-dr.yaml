@@ -12,3 +12,31 @@ ramen:
     channelName: stable-4.22
     namespaceName: openshift-dr-system
     clusterServiceVersionName: odr-cluster-operator.v4.22.8-rhodf
+
+# DRPolicy RPO: override the chart's 2m defaults with 5m for both VM and non-VM
+# policies. Defining regionalDR here replaces the chart's list, so keep the cluster
+# names; the chart merges clusterOverrides and falls back to
+# files/default-*-install-config.json for install_config.
+regionalDR:
+  - name: resilient
+    clusters:
+      primary:
+        name: ocp-primary
+      secondary:
+        name: ocp-secondary
+    drpolicies:
+      - interval: 5m
+        vmSupport: true
+        name: 5m-vm
+      - interval: 5m
+        name: 5m-novm
+
+# The DRPC references the VM policy by name; keep it aligned with the policy rename.
+drpc:
+  drPolicyRef:
+    name: 5m-vm
+  # KubeObjectProtection captures Kubernetes object metadata (via OADP), not the
+  # volume replication stream, so it is a separate knob from the DRPolicy RPO.
+  # Keep the chart default (2m0s): staying below the 5m schedulingInterval leaves
+  # headroom and keeps the effective application RPO at 5m. Raising it to 5m
+  # would give metadata capture zero slack without reducing volume RPO.

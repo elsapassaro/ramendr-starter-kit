@@ -11,7 +11,7 @@
 # ignoreDifferences for syncPolicy.automated so parent selfHeal cannot re-enable
 # autosync after settlement.
 #
-# regionalDR list replace (Helm): keep cluster names; only 2m-novm DRPolicy (no 2m-vm).
+# regionalDR list replace (Helm): keep cluster names; only 5m-novm DRPolicy (no 5m-vm).
 ramen:
   resourcesEnabled: false
   infrastructureEnabled: true
@@ -39,8 +39,8 @@ regionalDR:
       secondary:
         name: ocp-secondary
     drpolicies:
-      - interval: 2m
-        name: 2m-drpolicy
+      - interval: 5m
+        name: 5m-novm
 
 # Run in BYOC mode by default. Most test scenarios require this for this
 # variant.

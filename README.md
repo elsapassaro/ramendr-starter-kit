@@ -36,7 +36,7 @@ from the same ODF catalog, with the spoke operator configured as
 | Variant | Select | Purpose |
 |---------|--------|---------|
 | `odf` (default) | `main.variant: odf` | Baseline: full ODF Regional DR + Virtualization; `byoc: true` |
-| `drpartner-s4` | `main.variant: drpartner-s4` | Partner CSI + hub S4: OADP, OCP-V, preview RHDR; infrastructure DRClusters + `2m-novm` DRPolicy (no `2m-vm`/DRPC/VMs); Submariner disabled; `byoc: true` |
+| `drpartner-s4` | `main.variant: drpartner-s4` | Partner CSI + hub S4: OADP, OCP-V, preview RHDR; infrastructure DRClusters + `5m-novm` DRPolicy (no `5m-vm`/DRPC/VMs); Submariner disabled; `byoc: true` |
 | `drpartner-minimal` | `main.variant: drpartner-minimal` | Partner CSI without S4, Submariner, or DRCluster sync/validation: OADP, OCP-V, preview RHDR; Hive/BYOC only (`byoc: true`) |
 
 Layout:
@@ -50,7 +50,7 @@ variants/
   drpartner-s4/
     values-drpartner-s4.yaml           # preview RHDR catalog/IDMS + vp-s4-storage
     values-resilient.yaml              # partner spoke BOM (no ODF; preview RHDR catalog/IDMS)
-    values-regional-dr.yaml            # infrastructureEnabled: DRClusters + 2m-novm only + hub s3StoreProfiles; byoc: true
+    values-regional-dr.yaml            # infrastructureEnabled: DRClusters + 5m-novm only + hub s3StoreProfiles; byoc: true
     values-console-plugins-*.yaml
   drpartner-minimal/
     values-drpartner-minimal.yaml      # preview RHDR catalog/IDMS; no vp-s4-storage
@@ -77,7 +77,7 @@ main:
 ```
 
 `drpartner-s4` expectations after sync: s3-ssl/CA via **opp-policy** (Submariner disabled in `values-opp-policy.yaml`), hub **vp-s4-storage** (buckets via `s4Role.buckets`), preview RHDR (catalog + IDMS + `rhdr-multicluster-operator`; testing only), CNV, and OADP present;
-no odf-dr, MirrorPeer, or ODF StorageSystem; regionaldr with `ramen.infrastructureEnabled` creates DRClusters, a single `2m-novm` DRPolicy (no `2m-vm`), and upserts hub
+no odf-dr, MirrorPeer, or ODF StorageSystem; regionaldr with `ramen.infrastructureEnabled` creates DRClusters, a single `5m-novm` DRPolicy (no `5m-vm`), and upserts hub
 s3StoreProfiles only (`ensureBuckets: false`; no DRPC/VMs); opp-policy injects `caCertificates` only; `byoc: true`.
 
 `drpartner-minimal` expectations after sync: same preview RHDR catalog/IDMS/subscription and partner operators/plumbing without **vp-s4-storage** or Submariner (`submariner.enabled: false` in opp-policy); regionaldr with both
